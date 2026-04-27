@@ -9,7 +9,7 @@
 # 🌲 Florestas Públicas do Brasil
 ### Cadastro Nacional de Florestas Públicas (CNFP 2024) — Análise Geoespacial e WebMap Interativo
 
-**[🔗 Acessar o WebMap](https://seuusuario.github.io/florestas-publicas-brasil)** · [📊 Dados](./outputs/) · [📓 Notebooks](./notebooks/)
+**[Acessar o WebMap](https://pedroluizskt.github.io/florestas-publicas-brasil/)** · [Dados](./outputs/) · [Notebooks](./notebooks/)
 
 > *39,91% do território brasileiro é floresta pública — mas o que isso significa na prática?*
 > *Este repositório transforma 20.829 feições do CNFP em inteligência territorial interativa.*
@@ -18,7 +18,7 @@
 
 ---
 
-## 📌 Sobre o Projeto
+## Sobre o Projeto
 
 Este projeto realiza a análise geoespacial completa do **Cadastro Nacional de Florestas Públicas (CNFP 2024)**, publicado pelo **Serviço Florestal Brasileiro (SFB/MMA)**, cruzando os dados com os limites municipais e estaduais do IBGE 2024.
 
@@ -45,7 +45,7 @@ O produto final é um **WebMap interativo** publicado via GitHub Pages, que perm
 ## 🗺 WebMap
 
 Acesse o WebMap interativo em:
-**[https://seuusuario.github.io/florestas-publicas-brasil](https://seuusuario.github.io/florestas-publicas-brasil)**
+**[https://pedroluizskt.github.io/florestas-publicas-brasil/](https://pedroluizskt.github.io/florestas-publicas-brasil/)**
 
 ### Funcionalidades
 
@@ -63,11 +63,11 @@ Acesse o WebMap interativo em:
 ```
 florestas-publicas-brasil/
 │
-├── 📓 notebooks/
+├── notebooks/
 │   ├── 01_diagnostico.ipynb       # Inspeção completa dos dados brutos
 │   └── 02_processamento.ipynb     # Processamento, estatísticas e geração do WebMap
 │
-├── 📊 outputs/                    # CSVs de cache (reproduzíveis)
+├── outputs/                    # CSVs de cache (reproduzíveis)
 │   ├── stats_uf.csv               # Estatísticas por estado
 │   ├── stats_uf_legenda.csv       # Área por UF × categoria
 │   ├── stats_bioma.csv            # Área por bioma × categoria
@@ -75,13 +75,13 @@ florestas-publicas-brasil/
 │   ├── stats_serie_historica.csv  # Série histórica anual
 │   └── kpis_nacionais.csv         # KPIs agregados nacionais
 │
-├── 🌐 docs/                       # GitHub Pages (WebMap)
+├── docs/                       # GitHub Pages (WebMap)
 │   ├── index.html                 # WebMap interativo (Leaflet.js + Chart.js)
 │   ├── geojson_uf.json            # GeoJSON estados simplificado
 │   ├── geojson_municipios.json    # GeoJSON municípios simplificado
 │   └── geojson_cnfp.json          # GeoJSON CNFP 2024 simplificado (~75MB)
 │
-├── 📁 data/
+├── data/
 │   └── README.md                  # Instruções para download dos dados brutos
 │
 ├── .gitignore
@@ -135,7 +135,7 @@ python -m http.server 8080
 
 ---
 
-## 📐 Metodologia
+## Metodologia
 
 ### Processamento Geoespacial
 
@@ -153,9 +153,20 @@ Essa diferença é esperada e decorre da projeção utilizada na origem dos dado
 Ambos os valores são metodologicamente válidos; este projeto utiliza a área
 calculada em projeção Albers por maior precisão para análises nacionais.
 
+### ⚠️ Três Ressalvas Técnicas Importantes
+
+**Ressalva 1 — Sobreposições espaciais (a mais crítica)**
+O próprio SFB alerta: "no processo de produção do CNFP, existem sobreposições entre alguns polígonos, por exemplo, entre Unidades de Conservação da Natureza (UCs) ou entre UCs e Terras Indígenas." 
+
+**Ressalva 2 — "Floresta pública" ≠ "floresta em pé"**
+O SFB explicita: "São cadastradas sumariamente no Cadastro-Geral da União, independentemente de sua cobertura vegetal, do uso da terra e da observação dos estágios de cadastramento, as Terras Indígenas e as Unidades de Conservação federais." 
+
+**Ressalva 3 — Assentamentos como "floresta pública"**
+Os Assentamentos representam 49,2% das feições (10.240 registros). O CNFP classifica como Tipo A — ao lado de UCs e TIs — os "Assentamentos Rurais Públicos", destinados ao uso de comunidades tradicionais. Muitos desses assentamentos têm cobertura florestal degradada. A inclusão deles é legalmente correta dentro do escopo do CNFP, mas é uma limitação semântica relevante para qualquer comunicação que use o número de 339,83M ha como proxy de "floresta conservada". 
+
 ---
 
-## 📦 Fontes de Dados
+## Fontes de Dados
 
 | Fonte | Dataset | Acesso |
 |---|---|---|
@@ -178,7 +189,7 @@ calculada em projeção Albers por maior precisão para análises nacionais.
 
 ---
 
-## 📄 Licença
+## Licença
 
 Este projeto está licenciado sob a **MIT License** — veja o arquivo [LICENSE](./LICENSE) para detalhes.
 
@@ -189,10 +200,10 @@ Os dados utilizados são públicos e de domínio governamental (SFB/MMA e IBGE).
 ## 👤 Autor
 
 **Pedro Luiz**
-Geoprocessamento · Ciência de Dados · Sensoriamento Remoto · WebGIS
+Engenheiro Florestal · Ciência de Dados · Sensoriamento Remoto · WebGIS
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=flat-square&logo=linkedin)](https://linkedin.com/in/seuusuario)
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=flat-square&logo=github)](https://github.com/seuusuario)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=flat-square&logo=linkedin)](www.linkedin.com/in/pedro-luiz-rodrigues-vaz-de-melo)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=flat-square&logo=github)](https://github.com/PedroLuizskt)
 
 ---
 
