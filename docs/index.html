@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Florestas Públicas do Brasil · CNFP 2024</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:      #050d08;
+  --bg2:     #0a1a0d;
+  --bg3:     #0f2214;
+  --border:  #163520;
+  --border2: #1f4a2c;
+  --green:   #4ade80;
+  --green2:  #22c55e;
+  --forest:  #166534;
+  --teal:    #2dd4bf;
+  --amber:   #f59e0b;
+  --blue:    #60a5fa;
+  --red:     #f87171;
+  --purple:  #a78bfa;
+  --slate:   #94a3b8;
+  --txt:     #dcfce7;
+  --txt2:    #86efac;
+  --muted:   #3d6b4a;
+  --font:    'Source Sans 3', sans-serif;
+  --mono:    'Source Code Pro', monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--txt);
+      height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── HEADER ── */
+#hdr{
+  height:54px;flex-shrink:0;z-index:600;
+  background:linear-gradient(90deg,#020805 0%,#081409 50%,#050d08 100%);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:16px;padding:0 20px;
+  box-shadow:0 2px 20px rgba(0,0,0,.6);
+}
+.hdr-icon{font-size:24px;}
+.hdr-t h1{font-family:var(--font);font-size:15px;font-weight:700;
+           color:#bbf7d0;letter-spacing:-.1px;line-height:1.2;}
+.hdr-t p{font-size:9.5px;color:var(--muted);margin-top:1px;}
+.hdr-kpis{margin-left:auto;display:flex;gap:22px;align-items:center;}
+.hkpi{text-align:center;}
+.hkpi-v{font-family:var(--mono);font-size:17px;font-weight:600;
+          color:var(--green);line-height:1;}
+.hkpi-v.amber{color:var(--amber);}
+.hkpi-v.blue{color:var(--blue);}
+.hkpi-l{font-size:9px;color:var(--muted);margin-top:2px;}
+
+/* ── LAYOUT ── */
+#main{display:flex;flex:1;overflow:hidden;}
+#map {flex:1;position:relative;}
+#panel{
+  width:420px;background:var(--bg2);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:-4px 0 24px rgba(0,0,0,.5);
+}
+
+/* ── TABS ── */
+#tabs{display:flex;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
+.tab{flex:1;padding:10px 4px;text-align:center;font-size:10px;font-weight:600;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--muted);
+      cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.tab.active{color:var(--green);border-bottom-color:var(--green);background:rgba(74,222,128,.04);}
+.tab:hover:not(.active){color:var(--txt2);}
+
+/* ── CONTENT ── */
+.tc{flex:1;overflow-y:auto;display:none;flex-direction:column;gap:10px;padding:13px;}
+.tc.active{display:flex;}
+.tc::-webkit-scrollbar{width:3px;}
+.tc::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* ── CARD ── */
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+       padding:13px;flex-shrink:0;}
+.card h4{font-size:9.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;
+          color:var(--muted);margin-bottom:10px;}
+
+/* ── MODE BTNS ── */
+.mbtn{flex:1;padding:7px;border-radius:7px;border:1px solid var(--border2);
+       background:var(--bg);color:var(--muted);font-family:var(--font);
+       font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;}
+.mbtn.on{background:var(--forest);border-color:var(--green2);color:var(--txt);}
+
+/* ── KPI GRID ── */
+.kgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.kpi{background:var(--bg);border:1px solid var(--border);border-radius:8px;
+      padding:10px;text-align:center;}
+.kval{font-family:var(--mono);font-size:19px;font-weight:600;color:var(--green);line-height:1;}
+.kval.amber{color:var(--amber);} .kval.blue{color:var(--blue);}
+.kval.purple{color:var(--purple);} .kval.teal{color:var(--teal);}
+.klbl{font-size:9px;color:var(--muted);margin-top:3px;}
+
+/* ── NARR ── */
+.narr{padding:10px 12px;border-left:2px solid var(--forest);border-radius:0 8px 8px 0;
+       background:rgba(22,101,52,.1);font-size:11.5px;line-height:1.65;color:#a7f3d0;}
+
+/* ── RANK ── */
+.ritem{display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:7px;
+        margin-bottom:2px;background:var(--bg);border:1px solid var(--border);
+        cursor:pointer;transition:border-color .15s;}
+.ritem:hover{border-color:var(--green2);}
+.rnum{font-family:var(--mono);font-size:10px;color:var(--muted);width:18px;text-align:right;}
+.rname{flex:1;font-size:11.5px;color:var(--txt);}
+.rname small{display:block;font-size:9px;color:var(--muted);}
+.rval{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--green);white-space:nowrap;}
+.rbar{height:2px;background:var(--border);border-radius:1px;margin-top:3px;}
+.rfill{height:2px;background:var(--forest);border-radius:1px;transition:width .5s;}
+
+/* ── STAT ROW ── */
+.srow{display:flex;justify-content:space-between;align-items:center;
+       padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.srow:last-child{border-bottom:none;}
+.slbl{color:var(--muted);} .sval{font-weight:600;color:#bbf7d0;}
+
+/* ── CHART ── */
+.cwrap{position:relative;}
+.h180{height:180px;} .h200{height:200px;} .h240{height:240px;}
+
+/* ── LEGEND ── */
+#leg{
+  position:absolute;bottom:28px;right:428px;z-index:800;
+  background:rgba(5,13,8,.94);border:1px solid var(--border2);
+  border-radius:10px;padding:12px 14px;min-width:195px;
+  backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.5);
+}
+#leg h5{font-size:9px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;
+         color:var(--muted);margin-bottom:8px;}
+.leg-item{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:10px;color:var(--txt2);}
+.leg-dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
+
+/* ── FILTER BAR ── */
+#filter-bar{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  z-index:800;display:flex;gap:6px;background:rgba(5,13,8,.92);
+  border:1px solid var(--border2);border-radius:20px;padding:6px 12px;
+  backdrop-filter:blur(8px);box-shadow:0 2px 12px rgba(0,0,0,.4);
+}
+.fbtn{padding:4px 12px;border-radius:12px;border:1px solid transparent;
+       background:transparent;color:var(--muted);font-family:var(--font);
+       font-size:10px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.fbtn.active{background:var(--forest);border-color:var(--green2);color:var(--txt);}
+.fbtn:hover:not(.active){color:var(--txt2);}
+
+/* ── LOADING ── */
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;
+          align-items:center;justify-content:center;z-index:9999;
+          flex-direction:column;gap:14px;}
+.spin{width:42px;height:42px;border:2px solid var(--border);
+       border-top-color:var(--green);border-radius:50%;animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg)}}
+#loading p{font-size:12px;color:var(--muted);}
+#load-detail{font-size:10px;color:var(--border2);margin-top:4px;}
+
+/* ── TOOLTIP ── */
+.lf-tip{
+  background:#030a05 !important;border:1px solid var(--border2) !important;
+  color:var(--txt) !important;font-family:var(--font) !important;
+  font-size:12px !important;padding:8px 12px !important;
+  border-radius:8px !important;box-shadow:0 3px 12px rgba(0,0,0,.5) !important;
+}
+
+/* ── LEG PILLS ── */
+.leg-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;
+           border-radius:12px;font-size:10px;margin:2px;cursor:pointer;
+           border:1px solid rgba(255,255,255,.1);transition:all .2s;}
+.leg-pill.off{opacity:.35;}
+.leg-pill:hover{border-color:rgba(255,255,255,.3);}
+.pill-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spin"></div>
+  <p>Carregando Florestas Públicas do Brasil...</p>
+  <div id="load-detail">Aguarde — carregando GeoJSONs</div>
+</div>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="hdr-icon">🌲</div>
+  <div class="hdr-t">
+    <h1>Cadastro Nacional de Florestas Públicas · Brasil 2024</h1>
+    <p>SFB/MMA · CNFP 2024 · Processado em 27/04/2026 · Fonte: Serviço Florestal Brasileiro</p>
+  </div>
+  <div class="hdr-kpis">
+    <div class="hkpi">
+      <div class="hkpi-v">339.83M</div>
+      <div class="hkpi-l">ha florestas públicas</div>
+    </div>
+    <div class="hkpi">
+      <div class="hkpi-v amber">39.91%</div>
+      <div class="hkpi-l">do território BR</div>
+    </div>
+    <div class="hkpi">
+      <div class="hkpi-v blue">20.829</div>
+      <div class="hkpi-l">feições cadastradas</div>
+    </div>
+    <div class="hkpi">
+      <div class="hkpi-v" style="color:var(--purple)">3.438</div>
+      <div class="hkpi-l">municípios abrangidos</div>
+    </div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="map">
+    <!-- Filter bar -->
+    <div id="filter-bar">
+      <button class="fbtn active" onclick="setFilter('all')">Todas</button>
+      <button class="fbtn" onclick="setFilter('Assentamento')">Assentamentos</button>
+      <button class="fbtn" onclick="setFilter('Unidade de Conservação')">UCs</button>
+      <button class="fbtn" onclick="setFilter('Florestas Não Destinadas')">Não Destinadas</button>
+      <button class="fbtn" onclick="setFilter('Terra Indígena')">TIs</button>
+      <button class="fbtn" onclick="setFilter('Outra Destinação')">Outras</button>
+    </div>
+  </div>
+
+  <!-- PANEL -->
+  <div id="panel">
+    <div id="tabs">
+      <div class="tab active" onclick="switchTab('visao')">🗺 VISÃO GERAL</div>
+      <div class="tab" onclick="switchTab('ranking')">🏆 RANKING</div>
+      <div class="tab" onclick="switchTab('historia')">📈 HISTÓRICO</div>
+      <div class="tab" onclick="switchTab('bioma')">🌿 BIOMAS</div>
+    </div>
+
+    <!-- ══ TAB VISÃO GERAL ═══════════════════════════════════════════════ -->
+    <div id="tc-visao" class="tc active">
+
+      <div class="card">
+        <h4>Escala de visualização</h4>
+        <div style="display:flex;gap:6px">
+          <button class="mbtn on" onclick="setMapMode('uf')"   id="btn-uf">📍 Estados</button>
+          <button class="mbtn"    onclick="setMapMode('mun')"  id="btn-mun">🏘 Municípios</button>
+          <button class="mbtn"    onclick="setMapMode('fp')"   id="btn-fp">🌲 Florestas</button>
+        </div>
+      </div>
+
+      <div class="narr" id="narr-main">
+        O Cadastro Nacional de Florestas Públicas abrange
+        <strong>339.83M ha</strong> — equivalente a <strong>39.91%</strong>
+        do território brasileiro. Clique em um estado ou município para
+        explorar a composição por categoria.
+      </div>
+
+      <div class="card">
+        <h4>KPIs — <span id="kpi-sel-lbl">Brasil</span></h4>
+        <div class="kgrid" id="kpi-grid"></div>
+      </div>
+
+      <div class="card">
+        <h4>Composição por Categoria</h4>
+        <div class="cwrap h200"><canvas id="chart-donut"></canvas></div>
+      </div>
+
+      <div class="card" id="detail-card" style="display:none">
+        <h4>Detalhe — <span id="det-nome" style="color:var(--green)">—</span></h4>
+        <div id="det-stats"></div>
+      </div>
+
+    </div>
+
+    <!-- ══ TAB RANKING ═══════════════════════════════════════════════════ -->
+    <div id="tc-ranking" class="tc">
+
+      <div class="card">
+        <h4>Ordenar por</h4>
+        <div style="display:flex;gap:6px">
+          <button class="mbtn on" onclick="setRankMode('area')" id="rbtn-area">Área (ha)</button>
+          <button class="mbtn"    onclick="setRankMode('pct')"  id="rbtn-pct">% do Município</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Top 20 Estados — Área de Floresta Pública</h4>
+        <div class="cwrap h240"><canvas id="chart-uf-bar"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h4>Top 50 Municípios — <span id="rank-lbl">Área total (ha)</span></h4>
+        <div id="ranking-mun"></div>
+      </div>
+
+    </div>
+
+    <!-- ══ TAB HISTÓRICO ═════════════════════════════════════════════════ -->
+    <div id="tc-historia" class="tc">
+
+      <div class="card">
+        <h4>Série Histórica de Criação — Área Acumulada (ha)</h4>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.55">
+          Evolução do cadastro de florestas públicas ao longo do tempo,
+          considerando o campo <em>anocriacao</em> (registros com data informada).
+        </p>
+        <div class="cwrap h200"><canvas id="chart-serie-acum"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h4>Criações Anuais (novas feições e área)</h4>
+        <div class="cwrap h200"><canvas id="chart-serie-anual"></canvas></div>
+      </div>
+
+    </div>
+
+    <!-- ══ TAB BIOMAS ════════════════════════════════════════════════════ -->
+    <div id="tc-bioma" class="tc">
+
+      <div class="card">
+        <h4>Área por Bioma (ha)</h4>
+        <div class="cwrap h200"><canvas id="chart-bioma"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h4>Composição por Bioma × Categoria</h4>
+        <div id="bioma-detail"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Legenda do mapa -->
+<div id="leg">
+  <h5>Categoria CNFP</h5>
+  <div id="leg-items"></div>
+  <div style="border-top:1px solid var(--border);margin:7px 0 6px"></div>
+  <h5 style="margin-bottom:5px">Choropleth (%UF coberta)</h5>
+  <div style="height:7px;border-radius:4px;
+    background:linear-gradient(to right,#14532d,#16a34a,#fbbf24,#dc2626);
+    margin-bottom:3px"></div>
+  <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted)">
+    <span>0%</span><span>100%</span>
+  </div>
+</div>
+
+<script>
+/* ── DADOS ─────────────────────────────────────────────────────────────── */
+const STATS_UF   = {"AM": {"n": 1292, "area": 130008223.0, "pct_br": 38.257, "pct_uf": 82.87, "leg": {"Assentamento": 6342776.0, "Florestas Não Destinadas": 36647107.0, "Outra Destinação": 87570.0, "Terra Indígena": 45730713.0, "Unidade de Conservação": 41179293.0, "Área Militar": 20764.0}}, "PA": {"n": 2992, "area": 89609297.0, "pct_br": 26.369, "pct_uf": 71.46, "leg": {"Assentamento": 12089577.0, "Florestas Não Destinadas": 7530961.0, "Outra Destinação": 1578258.0, "Terra Indígena": 31487383.0, "Unidade de Conservação": 34597606.0, "Área Militar": 2325511.0}}, "MT": {"n": 1442, "area": 23242623.0, "pct_br": 6.839, "pct_uf": 24.44, "leg": {"Assentamento": 4221889.0, "Florestas Não Destinadas": 1165807.0, "Outra Destinação": 21409.0, "Terra Indígena": 15626060.0, "Unidade de Conservação": 2172370.0, "Área Militar": 35089.0}}, "RR": {"n": 226, "area": 19309339.0, "pct_br": 5.682, "pct_uf": 86.33, "leg": {"Assentamento": 1039041.0, "Florestas Não Destinadas": 3010866.0, "Outra Destinação": 0.0, "Terra Indígena": 10303504.0, "Unidade de Conservação": 4642595.0, "Área Militar": 313333.0}}, "RO": {"n": 695, "area": 14420588.0, "pct_br": 4.243, "pct_uf": 58.53, "leg": {"Assentamento": 2013086.0, "Florestas Não Destinadas": 2332301.0, "Outra Destinação": 8086.0, "Terra Indígena": 5199530.0, "Unidade de Conservação": 4854152.0, "Área Militar": 13432.0}}, "AP": {"n": 218, "area": 11599711.0, "pct_br": 3.413, "pct_uf": 81.56, "leg": {"Assentamento": 1167321.0, "Florestas Não Destinadas": 317211.0, "Outra Destinação": 44377.0, "Terra Indígena": 1184459.0, "Unidade de Conservação": 8879268.0, "Área Militar": 7076.0}}, "AC": {"n": 387, "area": 8995237.0, "pct_br": 2.647, "pct_uf": 53.48, "leg": {"Assentamento": 1193271.0, "Florestas Não Destinadas": 563400.0, "Outra Destinação": 0.0, "Terra Indígena": 2501913.0, "Unidade de Conservação": 4736654.0, "Área Militar": 0.0}}, "MA": {"n": 1669, "area": 8550766.0, "pct_br": 2.516, "pct_uf": 25.74, "leg": {"Assentamento": 2832127.0, "Florestas Não Destinadas": 239527.0, "Outra Destinação": 91718.0, "Terra Indígena": 2297997.0, "Unidade de Conservação": 3027063.0, "Área Militar": 62334.0}}, "TO": {"n": 1130, "area": 6172566.0, "pct_br": 1.816, "pct_uf": 21.56, "leg": {"Assentamento": 1075537.0, "Florestas Não Destinadas": 923911.0, "Outra Destinação": 133625.0, "Terra Indígena": 2678470.0, "Unidade de Conservação": 1361023.0, "Área Militar": 0.0}}, "BA": {"n": 1272, "area": 5387363.0, "pct_br": 1.585, "pct_uf": 9.1, "leg": {"Assentamento": 1738181.0, "Florestas Não Destinadas": 5403.0, "Outra Destinação": 526085.0, "Terra Indígena": 337651.0, "Unidade de Conservação": 2778936.0, "Área Militar": 1106.0}}, "MG": {"n": 1020, "area": 3595419.0, "pct_br": 1.058, "pct_uf": 5.52, "leg": {"Assentamento": 968536.0, "Florestas Não Destinadas": 0.0, "Outra Destinação": 269513.0, "Terra Indígena": 147997.0, "Unidade de Conservação": 2204101.0, "Área Militar": 5272.0}}, "PI": {"n": 611, "area": 3248257.0, "pct_br": 0.956, "pct_uf": 12.69, "leg": {"Assentamento": 782684.0, "Florestas Não Destinadas": 16077.0, "Outra Destinação": 131249.0, "Terra Indígena": 2061.0, "Unidade de Conservação": 2313970.0, "Área Militar": 2216.0}}, "GO": {"n": 663, "area": 2441621.0, "pct_br": 0.718, "pct_uf": 6.63, "leg": {"Assentamento": 1090488.0, "Florestas Não Destinadas": 1335.0, "Outra Destinação": 283812.0, "Terra Indígena": 40085.0, "Unidade de Conservação": 902191.0, "Área Militar": 123711.0}}, "MS": {"n": 482, "area": 2201199.0, "pct_br": 0.648, "pct_uf": 5.43, "leg": {"Assentamento": 712728.0, "Florestas Não Destinadas": 23772.0, "Outra Destinação": 14726.0, "Terra Indígena": 1020800.0, "Unidade de Conservação": 420197.0, "Área Militar": 8976.0}}, "SP": {"n": 811, "area": 2174161.0, "pct_br": 0.64, "pct_uf": 7.51, "leg": {"Assentamento": 205668.0, "Florestas Não Destinadas": 0.0, "Outra Destinação": 18080.0, "Terra Indígena": 89154.0, "Unidade de Conservação": 1861259.0, "Área Militar": 0.0}}, "PR": {"n": 717, "area": 1706755.0, "pct_br": 0.502, "pct_uf": 7.09, "leg": {"Assentamento": 476354.0, "Florestas Não Destinadas": 49047.0, "Outra Destinação": 30122.0, "Terra Indígena": 148494.0, "Unidade de Conservação": 1002736.0, "Área Militar": 0.0}}, "CE": {"n": 805, "area": 1512547.0, "pct_br": 0.445, "pct_uf": 10.09, "leg": {"Assentamento": 862488.0, "Florestas Não Destinadas": 0.0, "Outra Destinação": 25728.0, "Terra Indígena": 21577.0, "Unidade de Conservação": 602361.0, "Área Militar": 393.0}}, "PE": {"n": 1054, "area": 1301562.0, "pct_br": 0.383, "pct_uf": 13.01, "leg": {"Assentamento": 514513.0, "Florestas Não Destinadas": 4524.0, "Outra Destinação": 185464.0, "Terra Indígena": 207084.0, "Unidade de Conservação": 389977.0, "Área Militar": 0.0}}, "RS": {"n": 465, "area": 1022773.0, "pct_br": 0.301, "pct_uf": 2.74, "leg": {"Assentamento": 260703.0, "Florestas Não Destinadas": 2252.0, "Outra Destinação": 22632.0, "Terra Indígena": 142860.0, "Unidade de Conservação": 487167.0, "Área Militar": 107159.0}}, "RJ": {"n": 592, "area": 855125.0, "pct_br": 0.252, "pct_uf": 16.79, "leg": {"Assentamento": 82633.0, "Florestas Não Destinadas": 0.0, "Outra Destinação": 9108.0, "Terra Indígena": 5612.0, "Unidade de Conservação": 754691.0, "Área Militar": 3082.0}}, "SC": {"n": 409, "area": 692076.0, "pct_br": 0.204, "pct_uf": 5.73, "leg": {"Assentamento": 110027.0, "Florestas Não Destinadas": 28371.0, "Outra Destinação": 16021.0, "Terra Indígena": 103628.0, "Unidade de Conservação": 422297.0, "Área Militar": 11732.0}}, "RN": {"n": 503, "area": 565574.0, "pct_br": 0.166, "pct_uf": 10.61, "leg": {"Assentamento": 503677.0, "Florestas Não Destinadas": 0.0, "Outra Destinação": 5803.0, "Terra Indígena": 0.0, "Unidade de Conservação": 56094.0, "Área Militar": 0.0}}, "PB": {"n": 513, "area": 413145.0, "pct_br": 0.122, "pct_uf": 7.21, "leg": {"Assentamento": 266401.0, "Florestas Não Destinadas": 0.0, "Outra Destinação": 3470.0, "Terra Indígena": 34145.0, "Unidade de Conservação": 109129.0, "Área Militar": 0.0}}, "SE": {"n": 318, "area": 239213.0, "pct_br": 0.07, "pct_uf": 10.55, "leg": {"Assentamento": 155802.0, "Florestas Não Destinadas": 0.0, "Outra Destinação": 60184.0, "Terra Indígena": 4525.0, "Unidade de Conservação": 18171.0, "Área Militar": 531.0}}, "ES": {"n": 198, "area": 235109.0, "pct_br": 0.069, "pct_uf": 4.54, "leg": {"Assentamento": 49378.0, "Florestas Não Destinadas": 0.0, "Outra Destinação": 21456.0, "Terra Indígena": 20531.0, "Unidade de Conservação": 143744.0, "Área Militar": 0.0}}, "AL": {"n": 316, "area": 214332.0, "pct_br": 0.063, "pct_uf": 7.5, "leg": {"Assentamento": 83720.0, "Florestas Não Destinadas": 22.0, "Outra Destinação": 11113.0, "Terra Indígena": 26289.0, "Unidade de Conservação": 93188.0, "Área Militar": 0.0}}, "DF": {"n": 29, "area": 116832.0, "pct_br": 0.034, "pct_uf": 18.81, "leg": {"Assentamento": 3453.0, "Florestas Não Destinadas": 0.0, "Outra Destinação": 498.0, "Terra Indígena": 0.0, "Unidade de Conservação": 112876.0, "Área Militar": 6.0}}};
+const RANK_AREA  = [{"cd_mun": 1500602, "municipio": "ALTAMIRA", "uf": "PA", "area_ha": 15476085.57, "pct_mun_coberta": 95.81, "n_feicoes": 97}, {"cd_mun": 1505304, "municipio": "ORIXIMINÁ", "uf": "PA", "area_ha": 10600000.76, "pct_mun_coberta": 98.64, "n_feicoes": 62}, {"cd_mun": 1300409, "municipio": "BARCELOS", "uf": "AM", "area_ha": 10215986.85, "pct_mun_coberta": 83.49, "n_feicoes": 29}, {"cd_mun": 1303809, "municipio": "SÃO GABRIEL DA CACHOEIRA", "uf": "AM", "area_ha": 10086916.21, "pct_mun_coberta": 92.87, "n_feicoes": 19}, {"cd_mun": 1300201, "municipio": "ATALAIA DO NORTE", "uf": "AM", "area_ha": 7445572.34, "pct_mun_coberta": 96.47, "n_feicoes": 9}, {"cd_mun": 1507300, "municipio": "SÃO FÉLIX DO XINGU", "uf": "PA", "area_ha": 6573727.87, "pct_mun_coberta": 76.88, "n_feicoes": 63}, {"cd_mun": 1303601, "municipio": "SANTA ISABEL DO RIO NEGRO", "uf": "AM", "area_ha": 6161662.83, "pct_mun_coberta": 98.21, "n_feicoes": 26}, {"cd_mun": 1304104, "municipio": "TAPAUÁ", "uf": "AM", "area_ha": 6013446.01, "pct_mun_coberta": 70.08, "n_feicoes": 41}, {"cd_mun": 1302306, "municipio": "JUTAÍ", "uf": "AM", "area_ha": 5884815.94, "pct_mun_coberta": 84.23, "n_feicoes": 31}, {"cd_mun": 1500503, "municipio": "ALMEIRIM", "uf": "PA", "area_ha": 5826815.66, "pct_mun_coberta": 79.92, "n_feicoes": 14}, {"cd_mun": 1302405, "municipio": "LÁBREA", "uf": "AM", "area_ha": 5821643.49, "pct_mun_coberta": 83.57, "n_feicoes": 81}, {"cd_mun": 1503606, "municipio": "ITAITUBA", "uf": "PA", "area_ha": 5665696.51, "pct_mun_coberta": 90.44, "n_feicoes": 86}, {"cd_mun": 1302108, "municipio": "JAPURÁ", "uf": "AM", "area_ha": 5395549.09, "pct_mun_coberta": 96.77, "n_feicoes": 18}, {"cd_mun": 1300144, "municipio": "APUÍ", "uf": "AM", "area_ha": 5181594.85, "pct_mun_coberta": 93.9, "n_feicoes": 35}, {"cd_mun": 1503754, "municipio": "JACAREACANGA", "uf": "PA", "area_ha": 5083528.86, "pct_mun_coberta": 93.86, "n_feicoes": 26}, {"cd_mun": 1400209, "municipio": "CARACARAÍ", "uf": "RR", "area_ha": 4396145.34, "pct_mun_coberta": 92.84, "n_feicoes": 49}, {"cd_mun": 1301209, "municipio": "COARI", "uf": "AM", "area_ha": 4116902.97, "pct_mun_coberta": 70.67, "n_feicoes": 22}, {"cd_mun": 1302702, "municipio": "MANICORÉ", "uf": "AM", "area_ha": 3905403.4, "pct_mun_coberta": 79.89, "n_feicoes": 53}, {"cd_mun": 1300805, "municipio": "BORBA", "uf": "AM", "area_ha": 3868308.37, "pct_mun_coberta": 86.89, "n_feicoes": 51}, {"cd_mun": 1303205, "municipio": "NOVO AIRÃO", "uf": "AM", "area_ha": 3700606.22, "pct_mun_coberta": 97.94, "n_feicoes": 23}, {"cd_mun": 1302900, "municipio": "MAUÉS", "uf": "AM", "area_ha": 3673857.88, "pct_mun_coberta": 91.26, "n_feicoes": 30}, {"cd_mun": 1303304, "municipio": "NOVO ARIPUANÃ", "uf": "AM", "area_ha": 3440894.04, "pct_mun_coberta": 82.45, "n_feicoes": 31}, {"cd_mun": 1505031, "municipio": "NOVO PROGRESSO", "uf": "PA", "area_ha": 3428686.55, "pct_mun_coberta": 88.18, "n_feicoes": 32}, {"cd_mun": 1300904, "municipio": "CANUTAMA", "uf": "AM", "area_ha": 3115244.19, "pct_mun_coberta": 91.21, "n_feicoes": 37}, {"cd_mun": 1400472, "municipio": "RORAINÓPOLIS", "uf": "RR", "area_ha": 3113712.92, "pct_mun_coberta": 92.83, "n_feicoes": 31}, {"cd_mun": 1600279, "municipio": "LARANJAL DO JARI", "uf": "AP", "area_ha": 2911424.6, "pct_mun_coberta": 95.38, "n_feicoes": 14}, {"cd_mun": 1301704, "municipio": "HUMAITÁ", "uf": "AM", "area_ha": 2779895.17, "pct_mun_coberta": 82.68, "n_feicoes": 64}, {"cd_mun": 1304302, "municipio": "URUCARÁ", "uf": "AM", "area_ha": 2624594.41, "pct_mun_coberta": 94.06, "n_feicoes": 13}, {"cd_mun": 1505106, "municipio": "ÓBIDOS", "uf": "PA", "area_ha": 2457105.73, "pct_mun_coberta": 87.79, "n_feicoes": 46}, {"cd_mun": 1100106, "municipio": "GUAJARÁ-MIRIM", "uf": "RO", "area_ha": 2426725.11, "pct_mun_coberta": 94.01, "n_feicoes": 38}, {"cd_mun": 1400027, "municipio": "AMAJARI", "uf": "RR", "area_ha": 2386064.13, "pct_mun_coberta": 83.85, "n_feicoes": 20}, {"cd_mun": 1301951, "municipio": "ITAMARATI", "uf": "AM", "area_ha": 2292611.02, "pct_mun_coberta": 89.64, "n_feicoes": 8}, {"cd_mun": 1100205, "municipio": "PORTO VELHO", "uf": "RO", "area_ha": 2282948.01, "pct_mun_coberta": 65.35, "n_feicoes": 75}, {"cd_mun": 1301001, "municipio": "CARAUARI", "uf": "AM", "area_ha": 2243706.58, "pct_mun_coberta": 86.45, "n_feicoes": 14}, {"cd_mun": 1600501, "municipio": "OIAPOQUE", "uf": "AP", "area_ha": 2228538.18, "pct_mun_coberta": 96.47, "n_feicoes": 13}, {"cd_mun": 1400050, "municipio": "ALTO ALEGRE", "uf": "RR", "area_ha": 2215798.68, "pct_mun_coberta": 87.01, "n_feicoes": 15}, {"cd_mun": 1500404, "municipio": "ALENQUER", "uf": "PA", "area_ha": 2024634.58, "pct_mun_coberta": 85.7, "n_feicoes": 37}, {"cd_mun": 1303536, "municipio": "PRESIDENTE FIGUEIREDO", "uf": "AM", "area_ha": 2005716.49, "pct_mun_coberta": 78.83, "n_feicoes": 25}, {"cd_mun": 1304203, "municipio": "TEFÉ", "uf": "AM", "area_ha": 1999810.81, "pct_mun_coberta": 83.99, "n_feicoes": 12}, {"cd_mun": 1303908, "municipio": "SÃO PAULO DE OLIVENÇA", "uf": "AM", "area_ha": 1853249.01, "pct_mun_coberta": 93.79, "n_feicoes": 15}, {"cd_mun": 5105150, "municipio": "JUÍNA", "uf": "MT", "area_ha": 1712078.58, "pct_mun_coberta": 62.36, "n_feicoes": 12}, {"cd_mun": 1301308, "municipio": "CODAJÁS", "uf": "AM", "area_ha": 1651449.89, "pct_mun_coberta": 88.12, "n_feicoes": 17}, {"cd_mun": 1303502, "municipio": "PAUINI", "uf": "AM", "area_ha": 1617205.41, "pct_mun_coberta": 38.19, "n_feicoes": 27}, {"cd_mun": 1300706, "municipio": "BOCA DO ACRE", "uf": "AM", "area_ha": 1583588.45, "pct_mun_coberta": 70.6, "n_feicoes": 54}, {"cd_mun": 1501006, "municipio": "AVEIRO", "uf": "PA", "area_ha": 1576259.49, "pct_mun_coberta": 92.05, "n_feicoes": 32}, {"cd_mun": 1302801, "municipio": "MARAÃ", "uf": "AM", "area_ha": 1568611.59, "pct_mun_coberta": 93.14, "n_feicoes": 16}, {"cd_mun": 1505809, "municipio": "PORTEL", "uf": "PA", "area_ha": 1567355.09, "pct_mun_coberta": 61.69, "n_feicoes": 42}, {"cd_mun": 5103304, "municipio": "COMODORO", "uf": "MT", "area_ha": 1522207.1, "pct_mun_coberta": 67.26, "n_feicoes": 39}, {"cd_mun": 1200500, "municipio": "SENA MADUREIRA", "uf": "AC", "area_ha": 1508553.15, "pct_mun_coberta": 61.82, "n_feicoes": 42}, {"cd_mun": 5100805, "municipio": "APIACÁS", "uf": "MT", "area_ha": 1493607.35, "pct_mun_coberta": 71.3, "n_feicoes": 7}, {"cd_mun": 1300631, "municipio": "BERURI", "uf": "AM", "area_ha": 1486711.55, "pct_mun_coberta": 84.64, "n_feicoes": 23}, {"cd_mun": 1302207, "municipio": "JURUÁ", "uf": "AM", "area_ha": 1485833.58, "pct_mun_coberta": 76.24, "n_feicoes": 11}, {"cd_mun": 1301407, "municipio": "EIRUNEPÉ", "uf": "AM", "area_ha": 1396303.48, "pct_mun_coberta": 92.02, "n_feicoes": 11}, {"cd_mun": 1505908, "municipio": "PORTO DE MOZ", "uf": "PA", "area_ha": 1384299.94, "pct_mun_coberta": 79.43, "n_feicoes": 18}, {"cd_mun": 1507805, "municipio": "SENADOR JOSÉ PORFÍRIO", "uf": "PA", "area_ha": 1370363.5099999998, "pct_mun_coberta": 94.64, "n_feicoes": 24}, {"cd_mun": 1505437, "municipio": "OURILÂNDIA DO NORTE", "uf": "PA", "area_ha": 1333359.39, "pct_mun_coberta": 91.06, "n_feicoes": 14}, {"cd_mun": 1506807, "municipio": "SANTARÉM", "uf": "PA", "area_ha": 1307014.77, "pct_mun_coberta": 72.95, "n_feicoes": 56}, {"cd_mun": 1504802, "municipio": "MONTE ALEGRE", "uf": "PA", "area_ha": 1305183.43, "pct_mun_coberta": 71.96, "n_feicoes": 41}, {"cd_mun": 1600204, "municipio": "CALÇOENE", "uf": "AP", "area_ha": 1258238.98, "pct_mun_coberta": 89.07, "n_feicoes": 18}, {"cd_mun": 5103254, "municipio": "COLNIZA", "uf": "MT", "area_ha": 1224664.88, "pct_mun_coberta": 42.71, "n_feicoes": 25}, {"cd_mun": 1303007, "municipio": "NHAMUNDÁ", "uf": "AM", "area_ha": 1206813.0699999998, "pct_mun_coberta": 85.56, "n_feicoes": 12}, {"cd_mun": 1400282, "municipio": "IRACEMA", "uf": "RR", "area_ha": 1204252.5, "pct_mun_coberta": 85.88, "n_feicoes": 10}, {"cd_mun": 1400233, "municipio": "CAROEBE", "uf": "RR", "area_ha": 1178030.81, "pct_mun_coberta": 97.74, "n_feicoes": 11}, {"cd_mun": 1600402, "municipio": "MAZAGÃO", "uf": "AP", "area_ha": 1169180.75, "pct_mun_coberta": 88.05, "n_feicoes": 18}, {"cd_mun": 1503002, "municipio": "FARO", "uf": "PA", "area_ha": 1148532.73, "pct_mun_coberta": 97.64, "n_feicoes": 13}, {"cd_mun": 1301605, "municipio": "FONTE BOA", "uf": "AM", "area_ha": 1147225.16, "pct_mun_coberta": 94.31, "n_feicoes": 10}, {"cd_mun": 1303700, "municipio": "SANTO ANTÔNIO DO IÇÁ", "uf": "AM", "area_ha": 1136705.7, "pct_mun_coberta": 91.65, "n_feicoes": 18}, {"cd_mun": 1508050, "municipio": "TRAIRÃO", "uf": "PA", "area_ha": 1098183.96, "pct_mun_coberta": 90.96, "n_feicoes": 38}, {"cd_mun": 1200302, "municipio": "FEIJÓ", "uf": "AC", "area_ha": 1057357.15, "pct_mun_coberta": 36.97, "n_feicoes": 25}, {"cd_mun": 1505064, "municipio": "NOVO REPARTIMENTO", "uf": "PA", "area_ha": 1013877.96, "pct_mun_coberta": 65.52, "n_feicoes": 76}, {"cd_mun": 1400308, "municipio": "MUCAJAÍ", "uf": "RR", "area_ha": 1013026.66, "pct_mun_coberta": 82.05, "n_feicoes": 12}, {"cd_mun": 1303957, "municipio": "SÃO SEBASTIÃO DO UATUMÃ", "uf": "AM", "area_ha": 986711.05, "pct_mun_coberta": 92.67, "n_feicoes": 10}, {"cd_mun": 1708205, "municipio": "FORMOSO DO ARAGUAIA", "uf": "TO", "area_ha": 973719.09, "pct_mun_coberta": 69.48, "n_feicoes": 21}, {"cd_mun": 1304260, "municipio": "UARINI", "uf": "AM", "area_ha": 958206.41, "pct_mun_coberta": 93.08, "n_feicoes": 15}, {"cd_mun": 1600154, "municipio": "PEDRA BRANCA DO AMAPARI", "uf": "AP", "area_ha": 927382.1, "pct_mun_coberta": 96.45, "n_feicoes": 19}, {"cd_mun": 1101492, "municipio": "SÃO FRANCISCO DO GUAPORÉ", "uf": "RO", "area_ha": 914511.47, "pct_mun_coberta": 79.81, "n_feicoes": 27}, {"cd_mun": 1500859, "municipio": "ANAPU", "uf": "PA", "area_ha": 907398.14, "pct_mun_coberta": 75.99, "n_feicoes": 24}, {"cd_mun": 1300839, "municipio": "CAAPIRANGA", "uf": "AM", "area_ha": 901652.42, "pct_mun_coberta": 95.2, "n_feicoes": 8}, {"cd_mun": 1301803, "municipio": "IPIXUNA", "uf": "AM", "area_ha": 875501.1599999999, "pct_mun_coberta": 71.26, "n_feicoes": 6}, {"cd_mun": 1504208, "municipio": "MARABÁ", "uf": "PA", "area_ha": 872958.87, "pct_mun_coberta": 57.22, "n_feicoes": 131}, {"cd_mun": 5103858, "municipio": "GAÚCHA DO NORTE", "uf": "MT", "area_ha": 869134.2399999999, "pct_mun_coberta": 48.88, "n_feicoes": 5}, {"cd_mun": 5107065, "municipio": "QUERÊNCIA", "uf": "MT", "area_ha": 864707.53, "pct_mun_coberta": 46.49, "n_feicoes": 7}, {"cd_mun": 1100304, "municipio": "VILHENA", "uf": "RO", "area_ha": 863000.08, "pct_mun_coberta": 70.57, "n_feicoes": 23}, {"cd_mun": 1300607, "municipio": "BENJAMIN CONSTANT", "uf": "AM", "area_ha": 835672.41, "pct_mun_coberta": 95.38, "n_feicoes": 21}, {"cd_mun": 1501808, "municipio": "BREVES", "uf": "PA", "area_ha": 830834.62, "pct_mun_coberta": 86.92, "n_feicoes": 47}, {"cd_mun": 5106422, "municipio": "PEIXOTO DE AZEVEDO", "uf": "MT", "area_ha": 829073.38, "pct_mun_coberta": 55.73, "n_feicoes": 14}, {"cd_mun": 1505486, "municipio": "PACAJÁ", "uf": "PA", "area_ha": 819015.77, "pct_mun_coberta": 69.02, "n_feicoes": 45}, {"cd_mun": 1400704, "municipio": "UIRAMUTÃ", "uf": "RR", "area_ha": 811560.1, "pct_mun_coberta": 99.62, "n_feicoes": 3}, {"cd_mun": 1711902, "municipio": "LAGOA DA CONFUSÃO", "uf": "TO", "area_ha": 803256.5, "pct_mun_coberta": 73.36, "n_feicoes": 18}, {"cd_mun": 1400456, "municipio": "PACARAIMA", "uf": "RR", "area_ha": 795100.03, "pct_mun_coberta": 98.75, "n_feicoes": 5}, {"cd_mun": 1200351, "municipio": "MARECHAL THAUMATURGO", "uf": "AC", "area_ha": 783868.3300000001, "pct_mun_coberta": 93.5, "n_feicoes": 24}, {"cd_mun": 1100338, "municipio": "NOVA MAMORÉ", "uf": "RO", "area_ha": 768511.22, "pct_mun_coberta": 73.94, "n_feicoes": 38}, {"cd_mun": 1508159, "municipio": "URUARÁ", "uf": "PA", "area_ha": 768101.64, "pct_mun_coberta": 70.98, "n_feicoes": 31}, {"cd_mun": 1600055, "municipio": "SERRA DO NAVIO", "uf": "AP", "area_ha": 761437.9099999999, "pct_mun_coberta": 98.75, "n_feicoes": 12}, {"cd_mun": 5101407, "municipio": "ARIPUANÃ", "uf": "MT", "area_ha": 745294.37, "pct_mun_coberta": 29.3, "n_feicoes": 14}, {"cd_mun": 1200344, "municipio": "MANOEL URBANO", "uf": "AC", "area_ha": 732901.19, "pct_mun_coberta": 67.53, "n_feicoes": 21}, {"cd_mun": 1200609, "municipio": "TARAUACÁ", "uf": "AC", "area_ha": 705019.24, "pct_mun_coberta": 34.28, "n_feicoes": 33}, {"cd_mun": 5107958, "municipio": "TANGARÁ DA SERRA", "uf": "MT", "area_ha": 674186.9400000001, "pct_mun_coberta": 54.43, "n_feicoes": 13}, {"cd_mun": 1400407, "municipio": "NORMANDIA", "uf": "RR", "area_ha": 674001.75, "pct_mun_coberta": 96.51, "n_feicoes": 1}, {"cd_mun": 1504455, "municipio": "MEDICILÂNDIA", "uf": "PA", "area_ha": 670325.5, "pct_mun_coberta": 80.88, "n_feicoes": 22}, {"cd_mun": 5107578, "municipio": "RONDOLÂNDIA", "uf": "MT", "area_ha": 665474.1699999999, "pct_mun_coberta": 50.91, "n_feicoes": 14}, {"cd_mun": 2103174, "municipio": "CENTRO NOVO DO MARANHÃO", "uf": "MA", "area_ha": 655774.1699999999, "pct_mun_coberta": 77.93, "n_feicoes": 30}, {"cd_mun": 1100130, "municipio": "MACHADINHO D'OESTE", "uf": "RO", "area_ha": 647406.38, "pct_mun_coberta": 74.24, "n_feicoes": 45}, {"cd_mun": 1503903, "municipio": "JURUTI", "uf": "PA", "area_ha": 637338.1799999999, "pct_mun_coberta": 76.67, "n_feicoes": 27}, {"cd_mun": 1302603, "municipio": "MANAUS", "uf": "AM", "area_ha": 632831.25, "pct_mun_coberta": 55.46, "n_feicoes": 41}, {"cd_mun": 1506005, "municipio": "PRAINHA", "uf": "PA", "area_ha": 625140.0, "pct_mun_coberta": 42.26, "n_feicoes": 23}, {"cd_mun": 5006903, "municipio": "PORTO MURTINHO", "uf": "MS", "area_ha": 621790.0299999999, "pct_mun_coberta": 30.93, "n_feicoes": 8}, {"cd_mun": 1505536, "municipio": "PARAUAPEBAS", "uf": "PA", "area_ha": 617004.1, "pct_mun_coberta": 88.69, "n_feicoes": 29}, {"cd_mun": 1712702, "municipio": "MATEIROS", "uf": "TO", "area_ha": 611290.0700000001, "pct_mun_coberta": 61.68, "n_feicoes": 5}, {"cd_mun": 1600105, "municipio": "AMAPÁ", "uf": "AP", "area_ha": 609349.28, "pct_mun_coberta": 72.09, "n_feicoes": 14}, {"cd_mun": 1302504, "municipio": "MANACAPURU", "uf": "AM", "area_ha": 599917.02, "pct_mun_coberta": 81.6, "n_feicoes": 24}, {"cd_mun": 1100320, "municipio": "SÃO MIGUEL DO GUAPORÉ", "uf": "RO", "area_ha": 599595.84, "pct_mun_coberta": 84.86, "n_feicoes": 11}, {"cd_mun": 1503101, "municipio": "GURUPÁ", "uf": "PA", "area_ha": 587200.02, "pct_mun_coberta": 68.57, "n_feicoes": 19}, {"cd_mun": 1500305, "municipio": "AFUÁ", "uf": "PA", "area_ha": 575324.98, "pct_mun_coberta": 69.08, "n_feicoes": 39}, {"cd_mun": 5103700, "municipio": "FELIZ NATAL", "uf": "MT", "area_ha": 574612.63, "pct_mun_coberta": 47.24, "n_feicoes": 2}, {"cd_mun": 1505650, "municipio": "PLACAS", "uf": "PA", "area_ha": 573799.6900000001, "pct_mun_coberta": 79.72, "n_feicoes": 28}, {"cd_mun": 1300102, "municipio": "ANORI", "uf": "AM", "area_ha": 554175.92, "pct_mun_coberta": 91.43, "n_feicoes": 11}, {"cd_mun": 1717503, "municipio": "PIUM", "uf": "TO", "area_ha": 518640.29, "pct_mun_coberta": 50.29, "n_feicoes": 27}, {"cd_mun": 5107875, "municipio": "SAPEZAL", "uf": "MT", "area_ha": 517109.39, "pct_mun_coberta": 36.07, "n_feicoes": 13}, {"cd_mun": 1506195, "municipio": "RURÓPOLIS", "uf": "PA", "area_ha": 516434.23, "pct_mun_coberta": 73.24, "n_feicoes": 23}, {"cd_mun": 1500701, "municipio": "ANAJÁS", "uf": "PA", "area_ha": 516412.67, "pct_mun_coberta": 74.77, "n_feicoes": 13}, {"cd_mun": 1303106, "municipio": "NOVA OLINDA DO NORTE", "uf": "AM", "area_ha": 500276.31, "pct_mun_coberta": 89.36, "n_feicoes": 9}, {"cd_mun": 1502764, "municipio": "CUMARU DO NORTE", "uf": "PA", "area_ha": 497683.6, "pct_mun_coberta": 28.54, "n_feicoes": 11}, {"cd_mun": 2100600, "municipio": "AMARANTE DO MARANHÃO", "uf": "MA", "area_ha": 497582.92, "pct_mun_coberta": 66.38, "n_feicoes": 35}, {"cd_mun": 1300300, "municipio": "AUTAZES", "uf": "AM", "area_ha": 495702.92, "pct_mun_coberta": 64.57, "n_feicoes": 31}, {"cd_mun": 1400175, "municipio": "CANTÁ", "uf": "RR", "area_ha": 492654.59, "pct_mun_coberta": 64.25, "n_feicoes": 23}, {"cd_mun": 1300029, "municipio": "ALVARÃES", "uf": "AM", "area_ha": 483905.91, "pct_mun_coberta": 81.46, "n_feicoes": 9}, {"cd_mun": 1503705, "municipio": "ITUPIRANGA", "uf": "PA", "area_ha": 476267.56, "pct_mun_coberta": 60.03, "n_feicoes": 71}, {"cd_mun": 1200393, "municipio": "PORTO WALTER", "uf": "AC", "area_ha": 474314.48, "pct_mun_coberta": 72.0, "n_feicoes": 14}, {"cd_mun": 1200203, "municipio": "CRUZEIRO DO SUL", "uf": "AC", "area_ha": 470902.84, "pct_mun_coberta": 52.59, "n_feicoes": 37}, {"cd_mun": 1200435, "municipio": "SANTA ROSA DO PURUS", "uf": "AC", "area_ha": 469329.03, "pct_mun_coberta": 73.51, "n_feicoes": 13}, {"cd_mun": 5106307, "municipio": "PARANATINGA", "uf": "MT", "area_ha": 462342.7, "pct_mun_coberta": 18.12, "n_feicoes": 10}, {"cd_mun": 2106706, "municipio": "MIRADOR", "uf": "MA", "area_ha": 456570.00000000006, "pct_mun_coberta": 52.96, "n_feicoes": 8}, {"cd_mun": 1200054, "municipio": "ASSIS BRASIL", "uf": "AC", "area_ha": 454696.22, "pct_mun_coberta": 88.54, "n_feicoes": 10}, {"cd_mun": 1100015, "municipio": "ALTA FLORESTA D'OESTE", "uf": "RO", "area_ha": 452891.68, "pct_mun_coberta": 61.19, "n_feicoes": 23}, {"cd_mun": 2104081, "municipio": "FERNANDO FALCÃO", "uf": "MA", "area_ha": 446872.99, "pct_mun_coberta": 86.95, "n_feicoes": 8}, {"cd_mun": 2930204, "municipio": "SENTO SÉ", "uf": "BA", "area_ha": 442838.46, "pct_mun_coberta": 35.88, "n_feicoes": 15}, {"cd_mun": 1100809, "municipio": "CANDEIAS DO JAMARI", "uf": "RO", "area_ha": 441289.91, "pct_mun_coberta": 63.03, "n_feicoes": 22}, {"cd_mun": 1200336, "municipio": "MÂNCIO LIMA", "uf": "AC", "area_ha": 436112.17, "pct_mun_coberta": 79.28, "n_feicoes": 18}, {"cd_mun": 5107859, "municipio": "SÃO FÉLIX DO ARAGUAIA", "uf": "MT", "area_ha": 435767.6, "pct_mun_coberta": 25.13, "n_feicoes": 20}, {"cd_mun": 5103379, "municipio": "COTRIGUAÇU", "uf": "MT", "area_ha": 432363.77, "pct_mun_coberta": 44.46, "n_feicoes": 9}, {"cd_mun": 1300060, "municipio": "AMATURÁ", "uf": "AM", "area_ha": 431395.36, "pct_mun_coberta": 90.53, "n_feicoes": 13}, {"cd_mun": 1100122, "municipio": "JI-PARANÁ", "uf": "RO", "area_ha": 427847.1, "pct_mun_coberta": 60.07, "n_feicoes": 11}, {"cd_mun": 5106265, "municipio": "NOVO MUNDO", "uf": "MT", "area_ha": 422898.01, "pct_mun_coberta": 70.91, "n_feicoes": 26}, {"cd_mun": 5101902, "municipio": "BRASNORTE", "uf": "MT", "area_ha": 419094.68, "pct_mun_coberta": 25.07, "n_feicoes": 9}, {"cd_mun": 1504505, "municipio": "MELGAÇO", "uf": "PA", "area_ha": 415158.22, "pct_mun_coberta": 61.32, "n_feicoes": 16}, {"cd_mun": 1101005, "municipio": "GOVERNADOR JORGE TEIXEIRA", "uf": "RO", "area_ha": 403145.51, "pct_mun_coberta": 76.9, "n_feicoes": 10}, {"cd_mun": 1501725, "municipio": "BRASIL NOVO", "uf": "PA", "area_ha": 400667.36, "pct_mun_coberta": 62.84, "n_feicoes": 18}, {"cd_mun": 1301100, "municipio": "CAREIRO", "uf": "AM", "area_ha": 393662.02, "pct_mun_coberta": 64.37, "n_feicoes": 24}, {"cd_mun": 5105507, "municipio": "VILA BELA DA SANTÍSSIMA TRINDADE", "uf": "MT", "area_ha": 391018.93, "pct_mun_coberta": 27.05, "n_feicoes": 40}, {"cd_mun": 5205307, "municipio": "CAVALCANTE", "uf": "GO", "area_ha": 389661.21, "pct_mun_coberta": 53.04, "n_feicoes": 5}, {"cd_mun": 1400506, "municipio": "SÃO JOÃO DA BALIZA", "uf": "RR", "area_ha": 384990.0, "pct_mun_coberta": 89.96, "n_feicoes": 12}, {"cd_mun": 1304237, "municipio": "TONANTINS", "uf": "AM", "area_ha": 383971.02, "pct_mun_coberta": 59.5, "n_feicoes": 17}, {"cd_mun": 2100501, "municipio": "ALTO PARNAÍBA", "uf": "MA", "area_ha": 379595.15, "pct_mun_coberta": 33.23, "n_feicoes": 3}, {"cd_mun": 1600550, "municipio": "PRACUÚBA", "uf": "AP", "area_ha": 373147.95, "pct_mun_coberta": 75.45, "n_feicoes": 12}, {"cd_mun": 1200708, "municipio": "XAPURI", "uf": "AC", "area_ha": 356192.26, "pct_mun_coberta": 64.42, "n_feicoes": 7}, {"cd_mun": 1100080, "municipio": "COSTA MARQUES", "uf": "RO", "area_ha": 352645.83, "pct_mun_coberta": 67.68, "n_feicoes": 19}, {"cd_mun": 1504752, "municipio": "MOJUÍ DOS CAMPOS", "uf": "PA", "area_ha": 352576.32, "pct_mun_coberta": 70.56, "n_feicoes": 13}, {"cd_mun": 1101468, "municipio": "PIMENTEIRAS DO OESTE", "uf": "RO", "area_ha": 351001.48, "pct_mun_coberta": 55.41, "n_feicoes": 7}, {"cd_mun": 5106315, "municipio": "NOVO SANTO ANTÔNIO", "uf": "MT", "area_ha": 350114.25, "pct_mun_coberta": 76.16, "n_feicoes": 7}, {"cd_mun": 2902708, "municipio": "BARRA", "uf": "BA", "area_ha": 345067.16, "pct_mun_coberta": 29.13, "n_feicoes": 16}, {"cd_mun": 2102002, "municipio": "BOM JARDIM", "uf": "MA", "area_ha": 344741.58, "pct_mun_coberta": 52.21, "n_feicoes": 24}, {"cd_mun": 1600535, "municipio": "PORTO GRANDE", "uf": "AP", "area_ha": 341136.58, "pct_mun_coberta": 77.13, "n_feicoes": 19}, {"cd_mun": 5107180, "municipio": "RIBEIRÃO CASCALHEIRA", "uf": "MT", "area_ha": 335367.24, "pct_mun_coberta": 28.11, "n_feicoes": 15}, {"cd_mun": 1600709, "municipio": "TARTARUGALZINHO", "uf": "AP", "area_ha": 333752.52, "pct_mun_coberta": 49.96, "n_feicoes": 18}, {"cd_mun": 1300508, "municipio": "BARREIRINHA", "uf": "AM", "area_ha": 333259.58, "pct_mun_coberta": 57.84, "n_feicoes": 14}, {"cd_mun": 5104104, "municipio": "GUARANTÃ DO NORTE", "uf": "MT", "area_ha": 330961.2, "pct_mun_coberta": 68.11, "n_feicoes": 14}, {"cd_mun": 1302553, "municipio": "MANAQUIRI", "uf": "AM", "area_ha": 325604.10000000003, "pct_mun_coberta": 81.69, "n_feicoes": 22}, {"cd_mun": 5105101, "municipio": "JUARA", "uf": "MT", "area_ha": 324189.79000000004, "pct_mun_coberta": 13.82, "n_feicoes": 6}, {"cd_mun": 5103353, "municipio": "CONFRESA", "uf": "MT", "area_ha": 321605.17, "pct_mun_coberta": 53.7, "n_feicoes": 19}, {"cd_mun": 1505502, "municipio": "PARAGOMINAS", "uf": "PA", "area_ha": 320554.93, "pct_mun_coberta": 16.54, "n_feicoes": 54}, {"cd_mun": 1304062, "municipio": "TABATINGA", "uf": "AM", "area_ha": 317389.98, "pct_mun_coberta": 97.01, "n_feicoes": 12}, {"cd_mun": 1501451, "municipio": "BELTERRA", "uf": "PA", "area_ha": 314789.3, "pct_mun_coberta": 71.43, "n_feicoes": 19}, {"cd_mun": 1502806, "municipio": "CURRALINHO", "uf": "PA", "area_ha": 314365.91, "pct_mun_coberta": 86.94, "n_feicoes": 57}, {"cd_mun": 1200328, "municipio": "JORDÃO", "uf": "AC", "area_ha": 314089.37, "pct_mun_coberta": 57.31, "n_feicoes": 11}, {"cd_mun": 1101500, "municipio": "SERINGUEIRAS", "uf": "RO", "area_ha": 312472.72000000003, "pct_mun_coberta": 67.48, "n_feicoes": 10}, {"cd_mun": 1400159, "municipio": "BONFIM", "uf": "RR", "area_ha": 312011.37, "pct_mun_coberta": 38.57, "n_feicoes": 16}, {"cd_mun": 5102504, "municipio": "CÁCERES", "uf": "MT", "area_ha": 311431.67, "pct_mun_coberta": 11.7, "n_feicoes": 74}, {"cd_mun": 5102637, "municipio": "CAMPO NOVO DO PARECIS", "uf": "MT", "area_ha": 308187.16, "pct_mun_coberta": 30.9, "n_feicoes": 7}, {"cd_mun": 1301902, "municipio": "ITACOATIARA", "uf": "AM", "area_ha": 307975.88, "pct_mun_coberta": 34.57, "n_feicoes": 20}, {"cd_mun": 1502509, "municipio": "CHAVES", "uf": "PA", "area_ha": 305996.83, "pct_mun_coberta": 24.44, "n_feicoes": 7}, {"cd_mun": 1506583, "municipio": "SANTA MARIA DAS BARREIRAS", "uf": "PA", "area_ha": 305142.4, "pct_mun_coberta": 28.91, "n_feicoes": 51}, {"cd_mun": 1200401, "municipio": "RIO BRANCO", "uf": "AC", "area_ha": 304056.57, "pct_mun_coberta": 33.41, "n_feicoes": 30}, {"cd_mun": 5107743, "municipio": "SANTA CRUZ DO XINGU", "uf": "MT", "area_ha": 298438.18, "pct_mun_coberta": 51.52, "n_feicoes": 8}, {"cd_mun": 1600238, "municipio": "FERREIRA GOMES", "uf": "AP", "area_ha": 296209.55, "pct_mun_coberta": 59.6, "n_feicoes": 15}, {"cd_mun": 1101104, "municipio": "ITAPUÃ DO OESTE", "uf": "RO", "area_ha": 285283.42000000004, "pct_mun_coberta": 68.21, "n_feicoes": 14}, {"cd_mun": 5101803, "municipio": "BARRA DO GARÇAS", "uf": "MT", "area_ha": 275182.34, "pct_mun_coberta": 30.65, "n_feicoes": 34}, {"cd_mun": 1506708, "municipio": "SANTANA DO ARAGUAIA", "uf": "PA", "area_ha": 274674.9, "pct_mun_coberta": 23.1, "n_feicoes": 32}, {"cd_mun": 5102603, "municipio": "CAMPINÁPOLIS", "uf": "MT", "area_ha": 272762.16, "pct_mun_coberta": 42.88, "n_feicoes": 6}, {"cd_mun": 2204550, "municipio": "GUARIBAS", "uf": "PI", "area_ha": 265975.73, "pct_mun_coberta": 83.29, "n_feicoes": 2}, {"cd_mun": 1709005, "municipio": "GOIATINS", "uf": "TO", "area_ha": 265253.5, "pct_mun_coberta": 40.58, "n_feicoes": 5}, {"cd_mun": 5105606, "municipio": "MATUPÁ", "uf": "MT", "area_ha": 263731.42, "pct_mun_coberta": 48.99, "n_feicoes": 12}, {"cd_mun": 2104800, "municipio": "GRAJAÚ", "uf": "MA", "area_ha": 260540.37, "pct_mun_coberta": 29.13, "n_feicoes": 28}, {"cd_mun": 1500347, "municipio": "ÁGUA AZUL DO NORTE", "uf": "PA", "area_ha": 257950.97, "pct_mun_coberta": 35.8, "n_feicoes": 32}, {"cd_mun": 1100452, "municipio": "BURITIS", "uf": "RO", "area_ha": 252457.82, "pct_mun_coberta": 75.05, "n_feicoes": 24}, {"cd_mun": 1503093, "municipio": "GOIANÉSIA DO PARÁ", "uf": "PA", "area_ha": 251035.61, "pct_mun_coberta": 35.61, "n_feicoes": 26}, {"cd_mun": 1100379, "municipio": "ALTO ALEGRE DOS PARECIS", "uf": "RO", "area_ha": 250426.32, "pct_mun_coberta": 60.35, "n_feicoes": 9}, {"cd_mun": 1200104, "municipio": "BRASILÉIA", "uf": "AC", "area_ha": 247710.35, "pct_mun_coberta": 60.94, "n_feicoes": 11}, {"cd_mun": 5102702, "municipio": "CANARANA", "uf": "MT", "area_ha": 247316.55, "pct_mun_coberta": 21.61, "n_feicoes": 4}, {"cd_mun": 5106505, "municipio": "POCONÉ", "uf": "MT", "area_ha": 245622.45, "pct_mun_coberta": 13.25, "n_feicoes": 16}];
+const RANK_PCT   = [{"cd_mun": 3302858, "municipio": "MESQUITA", "uf": "RJ", "area_ha": 7012.57, "pct_mun_coberta": 100.0, "n_feicoes": 13}, {"cd_mun": 2605459, "municipio": "FERNANDO DE NORONHA", "uf": "PE", "area_ha": 1861.33, "pct_mun_coberta": 99.69, "n_feicoes": 2}, {"cd_mun": 1400704, "municipio": "UIRAMUTÃ", "uf": "RR", "area_ha": 811560.1, "pct_mun_coberta": 99.62, "n_feicoes": 3}, {"cd_mun": 2309102, "municipio": "MULUNGU", "uf": "CE", "area_ha": 9741.42, "pct_mun_coberta": 99.01, "n_feicoes": 5}, {"cd_mun": 1400456, "municipio": "PACARAIMA", "uf": "RR", "area_ha": 795100.03, "pct_mun_coberta": 98.75, "n_feicoes": 5}, {"cd_mun": 1600055, "municipio": "SERRA DO NAVIO", "uf": "AP", "area_ha": 761437.9099999999, "pct_mun_coberta": 98.75, "n_feicoes": 12}, {"cd_mun": 1505304, "municipio": "ORIXIMINÁ", "uf": "PA", "area_ha": 10600000.76, "pct_mun_coberta": 98.64, "n_feicoes": 62}, {"cd_mun": 1303601, "municipio": "SANTA ISABEL DO RIO NEGRO", "uf": "AM", "area_ha": 6161662.83, "pct_mun_coberta": 98.21, "n_feicoes": 26}, {"cd_mun": 1303205, "municipio": "NOVO AIRÃO", "uf": "AM", "area_ha": 3700606.22, "pct_mun_coberta": 97.94, "n_feicoes": 23}, {"cd_mun": 1400233, "municipio": "CAROEBE", "uf": "RR", "area_ha": 1178030.81, "pct_mun_coberta": 97.74, "n_feicoes": 11}, {"cd_mun": 1503002, "municipio": "FARO", "uf": "PA", "area_ha": 1148532.73, "pct_mun_coberta": 97.64, "n_feicoes": 13}, {"cd_mun": 2509057, "municipio": "MARCAÇÃO", "uf": "PB", "area_ha": 12102.5, "pct_mun_coberta": 97.43, "n_feicoes": 7}, {"cd_mun": 1304062, "municipio": "TABATINGA", "uf": "AM", "area_ha": 317389.98, "pct_mun_coberta": 97.01, "n_feicoes": 12}, {"cd_mun": 1302108, "municipio": "JAPURÁ", "uf": "AM", "area_ha": 5395549.09, "pct_mun_coberta": 96.77, "n_feicoes": 18}, {"cd_mun": 1400407, "municipio": "NORMANDIA", "uf": "RR", "area_ha": 674001.75, "pct_mun_coberta": 96.51, "n_feicoes": 1}, {"cd_mun": 1300201, "municipio": "ATALAIA DO NORTE", "uf": "AM", "area_ha": 7445572.34, "pct_mun_coberta": 96.47, "n_feicoes": 9}, {"cd_mun": 1600501, "municipio": "OIAPOQUE", "uf": "AP", "area_ha": 2228538.18, "pct_mun_coberta": 96.47, "n_feicoes": 13}, {"cd_mun": 1600154, "municipio": "PEDRA BRANCA DO AMAPARI", "uf": "AP", "area_ha": 927382.1, "pct_mun_coberta": 96.45, "n_feicoes": 19}, {"cd_mun": 2501401, "municipio": "BAÍA DA TRAIÇÃO", "uf": "PB", "area_ha": 10008.78, "pct_mun_coberta": 96.22, "n_feicoes": 3}, {"cd_mun": 1500602, "municipio": "ALTAMIRA", "uf": "PA", "area_ha": 15476085.57, "pct_mun_coberta": 95.81, "n_feicoes": 97}, {"cd_mun": 1600279, "municipio": "LARANJAL DO JARI", "uf": "AP", "area_ha": 2911424.6, "pct_mun_coberta": 95.38, "n_feicoes": 14}, {"cd_mun": 1300607, "municipio": "BENJAMIN CONSTANT", "uf": "AM", "area_ha": 835672.41, "pct_mun_coberta": 95.38, "n_feicoes": 21}, {"cd_mun": 1300839, "municipio": "CAAPIRANGA", "uf": "AM", "area_ha": 901652.42, "pct_mun_coberta": 95.2, "n_feicoes": 8}, {"cd_mun": 1508084, "municipio": "TUCUMÃ", "uf": "PA", "area_ha": 241786.76, "pct_mun_coberta": 95.0, "n_feicoes": 7}, {"cd_mun": 1507805, "municipio": "SENADOR JOSÉ PORFÍRIO", "uf": "PA", "area_ha": 1370363.5099999998, "pct_mun_coberta": 94.64, "n_feicoes": 24}, {"cd_mun": 1301605, "municipio": "FONTE BOA", "uf": "AM", "area_ha": 1147225.16, "pct_mun_coberta": 94.31, "n_feicoes": 10}, {"cd_mun": 1304302, "municipio": "URUCARÁ", "uf": "AM", "area_ha": 2624594.41, "pct_mun_coberta": 94.06, "n_feicoes": 13}, {"cd_mun": 1100106, "municipio": "GUAJARÁ-MIRIM", "uf": "RO", "area_ha": 2426725.11, "pct_mun_coberta": 94.01, "n_feicoes": 38}, {"cd_mun": 1300144, "municipio": "APUÍ", "uf": "AM", "area_ha": 5181594.85, "pct_mun_coberta": 93.9, "n_feicoes": 35}, {"cd_mun": 1503754, "municipio": "JACAREACANGA", "uf": "PA", "area_ha": 5083528.86, "pct_mun_coberta": 93.86, "n_feicoes": 26}, {"cd_mun": 1303908, "municipio": "SÃO PAULO DE OLIVENÇA", "uf": "AM", "area_ha": 1853249.01, "pct_mun_coberta": 93.79, "n_feicoes": 15}, {"cd_mun": 1501956, "municipio": "CACHOEIRA DO PIRIÁ", "uf": "PA", "area_ha": 226267.52, "pct_mun_coberta": 93.52, "n_feicoes": 8}, {"cd_mun": 1200351, "municipio": "MARECHAL THAUMATURGO", "uf": "AC", "area_ha": 783868.3300000001, "pct_mun_coberta": 93.5, "n_feicoes": 24}, {"cd_mun": 1302801, "municipio": "MARAÃ", "uf": "AM", "area_ha": 1568611.59, "pct_mun_coberta": 93.14, "n_feicoes": 16}, {"cd_mun": 1304260, "municipio": "UARINI", "uf": "AM", "area_ha": 958206.41, "pct_mun_coberta": 93.08, "n_feicoes": 15}, {"cd_mun": 1303809, "municipio": "SÃO GABRIEL DA CACHOEIRA", "uf": "AM", "area_ha": 10086916.21, "pct_mun_coberta": 92.87, "n_feicoes": 19}, {"cd_mun": 1400209, "municipio": "CARACARAÍ", "uf": "RR", "area_ha": 4396145.34, "pct_mun_coberta": 92.84, "n_feicoes": 49}, {"cd_mun": 1400472, "municipio": "RORAINÓPOLIS", "uf": "RR", "area_ha": 3113712.92, "pct_mun_coberta": 92.83, "n_feicoes": 31}, {"cd_mun": 3520426, "municipio": "ILHA COMPRIDA", "uf": "SP", "area_ha": 22104.84, "pct_mun_coberta": 92.8, "n_feicoes": 4}, {"cd_mun": 1303957, "municipio": "SÃO SEBASTIÃO DO UATUMÃ", "uf": "AM", "area_ha": 986711.05, "pct_mun_coberta": 92.67, "n_feicoes": 10}, {"cd_mun": 1501006, "municipio": "AVEIRO", "uf": "PA", "area_ha": 1576259.49, "pct_mun_coberta": 92.05, "n_feicoes": 32}, {"cd_mun": 1301407, "municipio": "EIRUNEPÉ", "uf": "AM", "area_ha": 1396303.48, "pct_mun_coberta": 92.02, "n_feicoes": 11}, {"cd_mun": 1303700, "municipio": "SANTO ANTÔNIO DO IÇÁ", "uf": "AM", "area_ha": 1136705.7, "pct_mun_coberta": 91.65, "n_feicoes": 18}, {"cd_mun": 1300102, "municipio": "ANORI", "uf": "AM", "area_ha": 554175.92, "pct_mun_coberta": 91.43, "n_feicoes": 11}, {"cd_mun": 3162450, "municipio": "SÃO JOÃO DAS MISSÕES", "uf": "MG", "area_ha": 66290.92, "pct_mun_coberta": 91.43, "n_feicoes": 9}, {"cd_mun": 1302900, "municipio": "MAUÉS", "uf": "AM", "area_ha": 3673857.88, "pct_mun_coberta": 91.26, "n_feicoes": 30}, {"cd_mun": 1300904, "municipio": "CANUTAMA", "uf": "AM", "area_ha": 3115244.19, "pct_mun_coberta": 91.21, "n_feicoes": 37}, {"cd_mun": 1505437, "municipio": "OURILÂNDIA DO NORTE", "uf": "PA", "area_ha": 1333359.39, "pct_mun_coberta": 91.06, "n_feicoes": 14}, {"cd_mun": 1508050, "municipio": "TRAIRÃO", "uf": "PA", "area_ha": 1098183.96, "pct_mun_coberta": 90.96, "n_feicoes": 38}, {"cd_mun": 1300060, "municipio": "AMATURÁ", "uf": "AM", "area_ha": 431395.36, "pct_mun_coberta": 90.53, "n_feicoes": 13}, {"cd_mun": 1503606, "municipio": "ITAITUBA", "uf": "PA", "area_ha": 5665696.51, "pct_mun_coberta": 90.44, "n_feicoes": 86}, {"cd_mun": 1400506, "municipio": "SÃO JOÃO DA BALIZA", "uf": "RR", "area_ha": 384990.0, "pct_mun_coberta": 89.96, "n_feicoes": 12}, {"cd_mun": 1101708, "municipio": "URUPÁ", "uf": "RO", "area_ha": 77535.19, "pct_mun_coberta": 89.88, "n_feicoes": 5}, {"cd_mun": 1301951, "municipio": "ITAMARATI", "uf": "AM", "area_ha": 2292611.02, "pct_mun_coberta": 89.64, "n_feicoes": 8}, {"cd_mun": 1303106, "municipio": "NOVA OLINDA DO NORTE", "uf": "AM", "area_ha": 500276.31, "pct_mun_coberta": 89.36, "n_feicoes": 9}, {"cd_mun": 1600204, "municipio": "CALÇOENE", "uf": "AP", "area_ha": 1258238.98, "pct_mun_coberta": 89.07, "n_feicoes": 18}, {"cd_mun": 1505536, "municipio": "PARAUAPEBAS", "uf": "PA", "area_ha": 617004.1, "pct_mun_coberta": 88.69, "n_feicoes": 29}, {"cd_mun": 1200054, "municipio": "ASSIS BRASIL", "uf": "AC", "area_ha": 454696.22, "pct_mun_coberta": 88.54, "n_feicoes": 10}, {"cd_mun": 1505031, "municipio": "NOVO PROGRESSO", "uf": "PA", "area_ha": 3428686.55, "pct_mun_coberta": 88.18, "n_feicoes": 32}, {"cd_mun": 1301308, "municipio": "CODAJÁS", "uf": "AM", "area_ha": 1651449.89, "pct_mun_coberta": 88.12, "n_feicoes": 17}, {"cd_mun": 1600402, "municipio": "MAZAGÃO", "uf": "AP", "area_ha": 1169180.75, "pct_mun_coberta": 88.05, "n_feicoes": 18}, {"cd_mun": 2201309, "municipio": "BARREIRAS DO PIAUÍ", "uf": "PI", "area_ha": 196627.38, "pct_mun_coberta": 88.05, "n_feicoes": 2}, {"cd_mun": 1505106, "municipio": "ÓBIDOS", "uf": "PA", "area_ha": 2457105.73, "pct_mun_coberta": 87.79, "n_feicoes": 46}, {"cd_mun": 1400050, "municipio": "ALTO ALEGRE", "uf": "RR", "area_ha": 2215798.68, "pct_mun_coberta": 87.01, "n_feicoes": 15}, {"cd_mun": 2104081, "municipio": "FERNANDO FALCÃO", "uf": "MA", "area_ha": 446872.99, "pct_mun_coberta": 86.95, "n_feicoes": 8}, {"cd_mun": 1502806, "municipio": "CURRALINHO", "uf": "PA", "area_ha": 314365.91, "pct_mun_coberta": 86.94, "n_feicoes": 57}, {"cd_mun": 1501808, "municipio": "BREVES", "uf": "PA", "area_ha": 830834.62, "pct_mun_coberta": 86.92, "n_feicoes": 47}, {"cd_mun": 1300805, "municipio": "BORBA", "uf": "AM", "area_ha": 3868308.37, "pct_mun_coberta": 86.89, "n_feicoes": 51}, {"cd_mun": 2100550, "municipio": "AMAPÁ DO MARANHÃO", "uf": "MA", "area_ha": 42828.44, "pct_mun_coberta": 86.77, "n_feicoes": 3}, {"cd_mun": 1507706, "municipio": "SÃO SEBASTIÃO DA BOA VISTA", "uf": "PA", "area_ha": 141462.01, "pct_mun_coberta": 86.72, "n_feicoes": 38}, {"cd_mun": 1301001, "municipio": "CARAUARI", "uf": "AM", "area_ha": 2243706.58, "pct_mun_coberta": 86.45, "n_feicoes": 14}, {"cd_mun": 3520400, "municipio": "ILHABELA", "uf": "SP", "area_ha": 35697.85, "pct_mun_coberta": 86.41, "n_feicoes": 2}, {"cd_mun": 1400282, "municipio": "IRACEMA", "uf": "RR", "area_ha": 1204252.5, "pct_mun_coberta": 85.88, "n_feicoes": 10}, {"cd_mun": 2103158, "municipio": "CENTRO DO GUILHERME", "uf": "MA", "area_ha": 97467.25, "pct_mun_coberta": 85.85, "n_feicoes": 13}, {"cd_mun": 2110278, "municipio": "SANTO AMARO DO MARANHÃO", "uf": "MA", "area_ha": 135774.40000000002, "pct_mun_coberta": 85.71, "n_feicoes": 2}, {"cd_mun": 1500404, "municipio": "ALENQUER", "uf": "PA", "area_ha": 2024634.58, "pct_mun_coberta": 85.7, "n_feicoes": 37}, {"cd_mun": 1303007, "municipio": "NHAMUNDÁ", "uf": "AM", "area_ha": 1206813.0699999998, "pct_mun_coberta": 85.56, "n_feicoes": 12}, {"cd_mun": 1100320, "municipio": "SÃO MIGUEL DO GUAPORÉ", "uf": "RO", "area_ha": 599595.84, "pct_mun_coberta": 84.86, "n_feicoes": 11}, {"cd_mun": 1300631, "municipio": "BERURI", "uf": "AM", "area_ha": 1486711.55, "pct_mun_coberta": 84.64, "n_feicoes": 23}, {"cd_mun": 2100204, "municipio": "ALCÂNTARA", "uf": "MA", "area_ha": 98543.64, "pct_mun_coberta": 84.33, "n_feicoes": 16}, {"cd_mun": 1302306, "municipio": "JUTAÍ", "uf": "AM", "area_ha": 5884815.94, "pct_mun_coberta": 84.23, "n_feicoes": 31}, {"cd_mun": 1304203, "municipio": "TEFÉ", "uf": "AM", "area_ha": 1999810.81, "pct_mun_coberta": 83.99, "n_feicoes": 12}, {"cd_mun": 1400027, "municipio": "AMAJARI", "uf": "RR", "area_ha": 2386064.13, "pct_mun_coberta": 83.85, "n_feicoes": 20}, {"cd_mun": 1302405, "municipio": "LÁBREA", "uf": "AM", "area_ha": 5821643.49, "pct_mun_coberta": 83.57, "n_feicoes": 81}, {"cd_mun": 1300409, "municipio": "BARCELOS", "uf": "AM", "area_ha": 10215986.85, "pct_mun_coberta": 83.49, "n_feicoes": 29}, {"cd_mun": 2204550, "municipio": "GUARIBAS", "uf": "PI", "area_ha": 265975.73, "pct_mun_coberta": 83.29, "n_feicoes": 2}, {"cd_mun": 1301704, "municipio": "HUMAITÁ", "uf": "AM", "area_ha": 2779895.17, "pct_mun_coberta": 82.68, "n_feicoes": 64}, {"cd_mun": 1303304, "municipio": "NOVO ARIPUANÃ", "uf": "AM", "area_ha": 3440894.04, "pct_mun_coberta": 82.45, "n_feicoes": 31}, {"cd_mun": 1400308, "municipio": "MUCAJAÍ", "uf": "RR", "area_ha": 1013026.66, "pct_mun_coberta": 82.05, "n_feicoes": 12}, {"cd_mun": 2107357, "municipio": "NOVA OLINDA DO MARANHÃO", "uf": "MA", "area_ha": 200937.05, "pct_mun_coberta": 81.82, "n_feicoes": 8}, {"cd_mun": 1302553, "municipio": "MANAQUIRI", "uf": "AM", "area_ha": 325604.10000000003, "pct_mun_coberta": 81.69, "n_feicoes": 22}, {"cd_mun": 1302504, "municipio": "MANACAPURU", "uf": "AM", "area_ha": 599917.02, "pct_mun_coberta": 81.6, "n_feicoes": 24}, {"cd_mun": 1300029, "municipio": "ALVARÃES", "uf": "AM", "area_ha": 483905.91, "pct_mun_coberta": 81.46, "n_feicoes": 9}, {"cd_mun": 2930154, "municipio": "SERRA DO RAMALHO", "uf": "BA", "area_ha": 200549.33, "pct_mun_coberta": 81.11, "n_feicoes": 8}, {"cd_mun": 1504455, "municipio": "MEDICILÂNDIA", "uf": "PA", "area_ha": 670325.5, "pct_mun_coberta": 80.88, "n_feicoes": 22}, {"cd_mun": 1721109, "municipio": "TOCANTÍNIA", "uf": "TO", "area_ha": 216550.66, "pct_mun_coberta": 80.78, "n_feicoes": 11}, {"cd_mun": 1712801, "municipio": "MAURILÂNDIA DO TOCANTINS", "uf": "TO", "area_ha": 59591.75, "pct_mun_coberta": 80.15, "n_feicoes": 4}, {"cd_mun": 1500503, "municipio": "ALMEIRIM", "uf": "PA", "area_ha": 5826815.66, "pct_mun_coberta": 79.92, "n_feicoes": 14}, {"cd_mun": 1302702, "municipio": "MANICORÉ", "uf": "AM", "area_ha": 3905403.4, "pct_mun_coberta": 79.89, "n_feicoes": 53}, {"cd_mun": 1101492, "municipio": "SÃO FRANCISCO DO GUAPORÉ", "uf": "RO", "area_ha": 914511.47, "pct_mun_coberta": 79.81, "n_feicoes": 27}, {"cd_mun": 1505650, "municipio": "PLACAS", "uf": "PA", "area_ha": 573799.6900000001, "pct_mun_coberta": 79.72, "n_feicoes": 28}, {"cd_mun": 2203420, "municipio": "DOMINGOS MOURÃO", "uf": "PI", "area_ha": 67862.81, "pct_mun_coberta": 79.62, "n_feicoes": 14}, {"cd_mun": 1505908, "municipio": "PORTO DE MOZ", "uf": "PA", "area_ha": 1384299.94, "pct_mun_coberta": 79.43, "n_feicoes": 18}, {"cd_mun": 1200336, "municipio": "MÂNCIO LIMA", "uf": "AC", "area_ha": 436112.17, "pct_mun_coberta": 79.28, "n_feicoes": 18}, {"cd_mun": 3537206, "municipio": "PEDRO DE TOLEDO", "uf": "SP", "area_ha": 63411.29000000001, "pct_mun_coberta": 78.92, "n_feicoes": 6}, {"cd_mun": 1303536, "municipio": "PRESIDENTE FIGUEIREDO", "uf": "AM", "area_ha": 2005716.49, "pct_mun_coberta": 78.83, "n_feicoes": 25}, {"cd_mun": 2308203, "municipio": "MERUOCA", "uf": "CE", "area_ha": 11950.95, "pct_mun_coberta": 78.6, "n_feicoes": 1}, {"cd_mun": 2103174, "municipio": "CENTRO NOVO DO MARANHÃO", "uf": "MA", "area_ha": 655774.1699999999, "pct_mun_coberta": 77.93, "n_feicoes": 30}, {"cd_mun": 1504950, "municipio": "NOVA ESPERANÇA DO PIRIÁ", "uf": "PA", "area_ha": 218477.19, "pct_mun_coberta": 77.76, "n_feicoes": 9}, {"cd_mun": 2105005, "municipio": "HUMBERTO DE CAMPOS", "uf": "MA", "area_ha": 133089.49, "pct_mun_coberta": 77.55, "n_feicoes": 4}, {"cd_mun": 3145059, "municipio": "NOVA PORTEIRINHA", "uf": "MG", "area_ha": 10068.57, "pct_mun_coberta": 77.26, "n_feicoes": 2}, {"cd_mun": 3303807, "municipio": "PARATY", "uf": "RJ", "area_ha": 84227.61, "pct_mun_coberta": 77.22, "n_feicoes": 21}, {"cd_mun": 1600535, "municipio": "PORTO GRANDE", "uf": "AP", "area_ha": 341136.58, "pct_mun_coberta": 77.13, "n_feicoes": 19}, {"cd_mun": 1101005, "municipio": "GOVERNADOR JORGE TEIXEIRA", "uf": "RO", "area_ha": 403145.51, "pct_mun_coberta": 76.9, "n_feicoes": 10}, {"cd_mun": 1507300, "municipio": "SÃO FÉLIX DO XINGU", "uf": "PA", "area_ha": 6573727.87, "pct_mun_coberta": 76.88, "n_feicoes": 63}, {"cd_mun": 1503903, "municipio": "JURUTI", "uf": "PA", "area_ha": 637338.1799999999, "pct_mun_coberta": 76.67, "n_feicoes": 27}, {"cd_mun": 3505401, "municipio": "BARRA DO TURVO", "uf": "SP", "area_ha": 93398.88, "pct_mun_coberta": 76.45, "n_feicoes": 10}, {"cd_mun": 3521200, "municipio": "IPORANGA", "uf": "SP", "area_ha": 106074.4, "pct_mun_coberta": 76.4, "n_feicoes": 19}, {"cd_mun": 1302207, "municipio": "JURUÁ", "uf": "AM", "area_ha": 1485833.58, "pct_mun_coberta": 76.24, "n_feicoes": 11}, {"cd_mun": 5106315, "municipio": "NOVO SANTO ANTÔNIO", "uf": "MT", "area_ha": 350114.25, "pct_mun_coberta": 76.16, "n_feicoes": 7}, {"cd_mun": 1500859, "municipio": "ANAPU", "uf": "PA", "area_ha": 907398.14, "pct_mun_coberta": 75.99, "n_feicoes": 24}, {"cd_mun": 1101757, "municipio": "VALE DO ANARI", "uf": "RO", "area_ha": 244054.92, "pct_mun_coberta": 75.73, "n_feicoes": 15}, {"cd_mun": 1600550, "municipio": "PRACUÚBA", "uf": "AP", "area_ha": 373147.95, "pct_mun_coberta": 75.45, "n_feicoes": 12}, {"cd_mun": 1100452, "municipio": "BURITIS", "uf": "RO", "area_ha": 252457.82, "pct_mun_coberta": 75.05, "n_feicoes": 24}, {"cd_mun": 1500701, "municipio": "ANAJÁS", "uf": "PA", "area_ha": 516412.67, "pct_mun_coberta": 74.77, "n_feicoes": 13}, {"cd_mun": 3555406, "municipio": "UBATUBA", "uf": "SP", "area_ha": 62591.55, "pct_mun_coberta": 74.64, "n_feicoes": 11}, {"cd_mun": 3550704, "municipio": "SÃO SEBASTIÃO", "uf": "SP", "area_ha": 35771.03, "pct_mun_coberta": 74.64, "n_feicoes": 7}, {"cd_mun": 3140308, "municipio": "MARLIÉRIA", "uf": "MG", "area_ha": 45645.89, "pct_mun_coberta": 74.27, "n_feicoes": 1}, {"cd_mun": 1100130, "municipio": "MACHADINHO D'OESTE", "uf": "RO", "area_ha": 647406.38, "pct_mun_coberta": 74.24, "n_feicoes": 45}, {"cd_mun": 2105104, "municipio": "ICATU", "uf": "MA", "area_ha": 83303.59, "pct_mun_coberta": 74.02, "n_feicoes": 6}, {"cd_mun": 1100338, "municipio": "NOVA MAMORÉ", "uf": "RO", "area_ha": 768511.22, "pct_mun_coberta": 73.94, "n_feicoes": 38}, {"cd_mun": 1200435, "municipio": "SANTA ROSA DO PURUS", "uf": "AC", "area_ha": 469329.03, "pct_mun_coberta": 73.51, "n_feicoes": 13}, {"cd_mun": 1711902, "municipio": "LAGOA DA CONFUSÃO", "uf": "TO", "area_ha": 803256.5, "pct_mun_coberta": 73.36, "n_feicoes": 18}, {"cd_mun": 1506195, "municipio": "RURÓPOLIS", "uf": "PA", "area_ha": 516434.23, "pct_mun_coberta": 73.24, "n_feicoes": 23}, {"cd_mun": 1506807, "municipio": "SANTARÉM", "uf": "PA", "area_ha": 1307014.77, "pct_mun_coberta": 72.95, "n_feicoes": 56}, {"cd_mun": 2207900, "municipio": "PEDRO II", "uf": "PI", "area_ha": 112441.51, "pct_mun_coberta": 72.45, "n_feicoes": 10}, {"cd_mun": 4105300, "municipio": "CÉU AZUL", "uf": "PR", "area_ha": 104035.63, "pct_mun_coberta": 72.28, "n_feicoes": 1}, {"cd_mun": 1600105, "municipio": "AMAPÁ", "uf": "AP", "area_ha": 609349.28, "pct_mun_coberta": 72.09, "n_feicoes": 14}, {"cd_mun": 1200393, "municipio": "PORTO WALTER", "uf": "AC", "area_ha": 474314.48, "pct_mun_coberta": 72.0, "n_feicoes": 14}, {"cd_mun": 1504802, "municipio": "MONTE ALEGRE", "uf": "PA", "area_ha": 1305183.43, "pct_mun_coberta": 71.96, "n_feicoes": 41}, {"cd_mun": 3506359, "municipio": "BERTIOGA", "uf": "SP", "area_ha": 42044.04, "pct_mun_coberta": 71.81, "n_feicoes": 5}, {"cd_mun": 1501451, "municipio": "BELTERRA", "uf": "PA", "area_ha": 314789.3, "pct_mun_coberta": 71.43, "n_feicoes": 19}, {"cd_mun": 5100805, "municipio": "APIACÁS", "uf": "MT", "area_ha": 1493607.35, "pct_mun_coberta": 71.3, "n_feicoes": 7}, {"cd_mun": 1301803, "municipio": "IPIXUNA", "uf": "AM", "area_ha": 875501.1599999999, "pct_mun_coberta": 71.26, "n_feicoes": 6}, {"cd_mun": 1508159, "municipio": "URUARÁ", "uf": "PA", "area_ha": 768101.64, "pct_mun_coberta": 70.98, "n_feicoes": 31}, {"cd_mun": 5106265, "municipio": "NOVO MUNDO", "uf": "MT", "area_ha": 422898.01, "pct_mun_coberta": 70.91, "n_feicoes": 26}, {"cd_mun": 1301209, "municipio": "COARI", "uf": "AM", "area_ha": 4116902.97, "pct_mun_coberta": 70.67, "n_feicoes": 22}, {"cd_mun": 1300706, "municipio": "BOCA DO ACRE", "uf": "AM", "area_ha": 1583588.45, "pct_mun_coberta": 70.6, "n_feicoes": 54}, {"cd_mun": 1100304, "municipio": "VILHENA", "uf": "RO", "area_ha": 863000.08, "pct_mun_coberta": 70.57, "n_feicoes": 23}, {"cd_mun": 1504752, "municipio": "MOJUÍ DOS CAMPOS", "uf": "PA", "area_ha": 352576.32, "pct_mun_coberta": 70.56, "n_feicoes": 13}, {"cd_mun": 2109601, "municipio": "ROSÁRIO", "uf": "MA", "area_ha": 45689.1, "pct_mun_coberta": 70.41, "n_feicoes": 13}, {"cd_mun": 3509908, "municipio": "CANANÉIA", "uf": "SP", "area_ha": 105412.79, "pct_mun_coberta": 70.12, "n_feicoes": 24}, {"cd_mun": 1304104, "municipio": "TAPAUÁ", "uf": "AM", "area_ha": 6013446.01, "pct_mun_coberta": 70.08, "n_feicoes": 41}, {"cd_mun": 1703826, "municipio": "CACHOEIRINHA", "uf": "TO", "area_ha": 24815.16, "pct_mun_coberta": 69.89, "n_feicoes": 6}, {"cd_mun": 2202505, "municipio": "CARACOL", "uf": "PI", "area_ha": 115142.74, "pct_mun_coberta": 69.78, "n_feicoes": 3}, {"cd_mun": 1708205, "municipio": "FORMOSO DO ARAGUAIA", "uf": "TO", "area_ha": 973719.09, "pct_mun_coberta": 69.48, "n_feicoes": 21}, {"cd_mun": 2104677, "municipio": "GOVERNADOR NUNES FREIRE", "uf": "MA", "area_ha": 72679.15, "pct_mun_coberta": 69.27, "n_feicoes": 8}, {"cd_mun": 1500305, "municipio": "AFUÁ", "uf": "PA", "area_ha": 575324.98, "pct_mun_coberta": 69.08, "n_feicoes": 39}, {"cd_mun": 1505486, "municipio": "PACAJÁ", "uf": "PA", "area_ha": 819015.77, "pct_mun_coberta": 69.02, "n_feicoes": 45}, {"cd_mun": 1503101, "municipio": "GURUPÁ", "uf": "PA", "area_ha": 587200.02, "pct_mun_coberta": 68.57, "n_feicoes": 19}, {"cd_mun": 1101104, "municipio": "ITAPUÃ DO OESTE", "uf": "RO", "area_ha": 285283.42000000004, "pct_mun_coberta": 68.21, "n_feicoes": 14}, {"cd_mun": 4109609, "municipio": "GUARATUBA", "uf": "PR", "area_ha": 111362.01, "pct_mun_coberta": 68.19, "n_feicoes": 5}, {"cd_mun": 5104104, "municipio": "GUARANTÃ DO NORTE", "uf": "MT", "area_ha": 330961.2, "pct_mun_coberta": 68.11, "n_feicoes": 14}, {"cd_mun": 2103703, "municipio": "CURURUPU", "uf": "MA", "area_ha": 85059.87, "pct_mun_coberta": 67.76, "n_feicoes": 3}, {"cd_mun": 1100080, "municipio": "COSTA MARQUES", "uf": "RO", "area_ha": 352645.83, "pct_mun_coberta": 67.68, "n_feicoes": 19}, {"cd_mun": 3510500, "municipio": "CARAGUATATUBA", "uf": "SP", "area_ha": 38947.09, "pct_mun_coberta": 67.55, "n_feicoes": 2}, {"cd_mun": 1200344, "municipio": "MANOEL URBANO", "uf": "AC", "area_ha": 732901.19, "pct_mun_coberta": 67.53, "n_feicoes": 21}, {"cd_mun": 1101500, "municipio": "SERINGUEIRAS", "uf": "RO", "area_ha": 312472.72000000003, "pct_mun_coberta": 67.48, "n_feicoes": 10}, {"cd_mun": 1719004, "municipio": "SANTA TEREZA DO TOCANTINS", "uf": "TO", "area_ha": 37540.92, "pct_mun_coberta": 67.45, "n_feicoes": 1}, {"cd_mun": 5103304, "municipio": "COMODORO", "uf": "MT", "area_ha": 1522207.1, "pct_mun_coberta": 67.26, "n_feicoes": 39}, {"cd_mun": 1400605, "municipio": "SÃO LUIZ", "uf": "RR", "area_ha": 102159.4, "pct_mun_coberta": 66.97, "n_feicoes": 8}, {"cd_mun": 1200427, "municipio": "RODRIGUES ALVES", "uf": "AC", "area_ha": 209053.36, "pct_mun_coberta": 66.65, "n_feicoes": 20}, {"cd_mun": 2100600, "municipio": "AMARANTE DO MARANHÃO", "uf": "MA", "area_ha": 497582.92, "pct_mun_coberta": 66.38, "n_feicoes": 35}, {"cd_mun": 1301852, "municipio": "IRANDUBA", "uf": "AM", "area_ha": 147306.91, "pct_mun_coberta": 66.34, "n_feicoes": 19}, {"cd_mun": 1300086, "municipio": "ANAMÃ", "uf": "AM", "area_ha": 162300.97, "pct_mun_coberta": 66.18, "n_feicoes": 9}, {"cd_mun": 1505064, "municipio": "NOVO REPARTIMENTO", "uf": "PA", "area_ha": 1013877.96, "pct_mun_coberta": 65.52, "n_feicoes": 76}, {"cd_mun": 1100205, "municipio": "PORTO VELHO", "uf": "RO", "area_ha": 2282948.01, "pct_mun_coberta": 65.35, "n_feicoes": 75}, {"cd_mun": 2109239, "municipio": "PRESIDENTE MÉDICI", "uf": "MA", "area_ha": 28537.33, "pct_mun_coberta": 65.18, "n_feicoes": 7}, {"cd_mun": 2107100, "municipio": "MORROS", "uf": "MA", "area_ha": 111167.19, "pct_mun_coberta": 64.83, "n_feicoes": 13}, {"cd_mun": 1703891, "municipio": "CARRASCO BONITO", "uf": "TO", "area_ha": 12400.57, "pct_mun_coberta": 64.66, "n_feicoes": 6}, {"cd_mun": 1300300, "municipio": "AUTAZES", "uf": "AM", "area_ha": 495702.92, "pct_mun_coberta": 64.57, "n_feicoes": 31}, {"cd_mun": 1200708, "municipio": "XAPURI", "uf": "AC", "area_ha": 356192.26, "pct_mun_coberta": 64.42, "n_feicoes": 7}, {"cd_mun": 1301100, "municipio": "CAREIRO", "uf": "AM", "area_ha": 393662.02, "pct_mun_coberta": 64.37, "n_feicoes": 24}, {"cd_mun": 3300100, "municipio": "ANGRA DOS REIS", "uf": "RJ", "area_ha": 61637.240000000005, "pct_mun_coberta": 64.36, "n_feicoes": 16}, {"cd_mun": 2102408, "municipio": "CAJAPIÓ", "uf": "MA", "area_ha": 35134.36, "pct_mun_coberta": 64.35, "n_feicoes": 1}, {"cd_mun": 1400175, "municipio": "CANTÁ", "uf": "RR", "area_ha": 492654.59, "pct_mun_coberta": 64.25, "n_feicoes": 23}, {"cd_mun": 5221080, "municipio": "TERESINA DE GOIÁS", "uf": "GO", "area_ha": 53020.91, "pct_mun_coberta": 63.88, "n_feicoes": 5}, {"cd_mun": 3302601, "municipio": "MANGARATIBA", "uf": "RJ", "area_ha": 27615.04, "pct_mun_coberta": 63.84, "n_feicoes": 11}, {"cd_mun": 2922607, "municipio": "NILO PEÇANHA", "uf": "BA", "area_ha": 26249.21, "pct_mun_coberta": 63.83, "n_feicoes": 5}, {"cd_mun": 4126355, "municipio": "SERRANÓPOLIS DO IGUAÇU", "uf": "PR", "area_ha": 37630.61, "pct_mun_coberta": 63.73, "n_feicoes": 1}, {"cd_mun": 5100359, "municipio": "ALTO BOA VISTA", "uf": "MT", "area_ha": 148382.4, "pct_mun_coberta": 63.32, "n_feicoes": 10}, {"cd_mun": 1100809, "municipio": "CANDEIAS DO JAMARI", "uf": "RO", "area_ha": 441289.91, "pct_mun_coberta": 63.03, "n_feicoes": 22}, {"cd_mun": 2206357, "municipio": "MILTON BRANDÃO", "uf": "PI", "area_ha": 82908.83, "pct_mun_coberta": 62.98, "n_feicoes": 12}, {"cd_mun": 1501725, "municipio": "BRASIL NOVO", "uf": "PA", "area_ha": 400667.36, "pct_mun_coberta": 62.84, "n_feicoes": 18}, {"cd_mun": 5105150, "municipio": "JUÍNA", "uf": "MT", "area_ha": 1712078.58, "pct_mun_coberta": 62.36, "n_feicoes": 12}, {"cd_mun": 1200500, "municipio": "SENA MADUREIRA", "uf": "AC", "area_ha": 1508553.15, "pct_mun_coberta": 61.82, "n_feicoes": 42}, {"cd_mun": 2109403, "municipio": "PRIMEIRA CRUZ", "uf": "MA", "area_ha": 82666.65000000001, "pct_mun_coberta": 61.76, "n_feicoes": 4}, {"cd_mun": 2205573, "municipio": "LAGOA DE SÃO FRANCISCO", "uf": "PI", "area_ha": 9660.1, "pct_mun_coberta": 61.7, "n_feicoes": 2}, {"cd_mun": 1505809, "municipio": "PORTEL", "uf": "PA", "area_ha": 1567355.09, "pct_mun_coberta": 61.69, "n_feicoes": 42}, {"cd_mun": 1712702, "municipio": "MATEIROS", "uf": "TO", "area_ha": 611290.0700000001, "pct_mun_coberta": 61.68, "n_feicoes": 5}];
+const SERIE      = [{"ano": 1930, "n_criadas": 4, "area_ha": 14384.62, "area_acum_ha": 14384.62}, {"ano": 1934, "n_criadas": 1, "area_ha": 330.01, "area_acum_ha": 14714.63}, {"ano": 1937, "n_criadas": 4, "area_ha": 32736.29, "area_acum_ha": 47450.92}, {"ano": 1939, "n_criadas": 12, "area_ha": 230741.23, "area_acum_ha": 278192.15}, {"ano": 1941, "n_criadas": 6, "area_ha": 10184.27, "area_acum_ha": 288376.42000000004}, {"ano": 1944, "n_criadas": 9, "area_ha": 96760.71, "area_acum_ha": 385137.13}, {"ano": 1946, "n_criadas": 6, "area_ha": 39511.57, "area_acum_ha": 424648.7}, {"ano": 1947, "n_criadas": 3, "area_ha": 21126.14, "area_acum_ha": 445774.84}, {"ano": 1949, "n_criadas": 1, "area_ha": 1816.8, "area_acum_ha": 447591.64}, {"ano": 1950, "n_criadas": 1, "area_ha": 213.13, "area_acum_ha": 447804.77}, {"ano": 1952, "n_criadas": 1, "area_ha": 104.85, "area_acum_ha": 447909.62}, {"ano": 1957, "n_criadas": 1, "area_ha": 214.59, "area_acum_ha": 448124.21}, {"ano": 1958, "n_criadas": 1, "area_ha": 89.29, "area_acum_ha": 448213.5}, {"ano": 1960, "n_criadas": 3, "area_ha": 43129.62, "area_acum_ha": 491343.12}, {"ano": 1961, "n_criadas": 54, "area_ha": 1059566.53, "area_acum_ha": 1550909.65}, {"ano": 1962, "n_criadas": 4, "area_ha": 16583.19, "area_acum_ha": 1567492.84}, {"ano": 1964, "n_criadas": 1, "area_ha": 1051.03, "area_acum_ha": 1568543.87}, {"ano": 1965, "n_criadas": 3, "area_ha": 11385.1, "area_acum_ha": 1579928.97}, {"ano": 1966, "n_criadas": 1, "area_ha": 20.7, "area_acum_ha": 1579949.67}, {"ano": 1967, "n_criadas": 2, "area_ha": 6815.4, "area_acum_ha": 1586765.0699999998}, {"ano": 1968, "n_criadas": 27, "area_ha": 43259.6, "area_acum_ha": 1630024.67}, {"ano": 1969, "n_criadas": 2, "area_ha": 112.81, "area_acum_ha": 1630137.48}, {"ano": 1970, "n_criadas": 5, "area_ha": 27023.83, "area_acum_ha": 1657161.31}, {"ano": 1971, "n_criadas": 8, "area_ha": 587793.17, "area_acum_ha": 2244954.48}, {"ano": 1972, "n_criadas": 22, "area_ha": 514846.9, "area_acum_ha": 2759801.38}, {"ano": 1973, "n_criadas": 1, "area_ha": 6799.85, "area_acum_ha": 2766601.23}, {"ano": 1974, "n_criadas": 22, "area_ha": 578634.9, "area_acum_ha": 3345236.13}, {"ano": 1975, "n_criadas": 15, "area_ha": 82172.89, "area_acum_ha": 3427409.02}, {"ano": 1976, "n_criadas": 9, "area_ha": 19132.95, "area_acum_ha": 3446541.97}, {"ano": 1977, "n_criadas": 9, "area_ha": 46232.84, "area_acum_ha": 3492774.81}, {"ano": 1978, "n_criadas": 7, "area_ha": 16915.6, "area_acum_ha": 3509690.41}, {"ano": 1979, "n_criadas": 25, "area_ha": 3238664.78, "area_acum_ha": 6748355.19}, {"ano": 1980, "n_criadas": 26, "area_ha": 2597428.92, "area_acum_ha": 9345784.11}, {"ano": 1981, "n_criadas": 48, "area_ha": 1366780.27, "area_acum_ha": 10712564.38}, {"ano": 1982, "n_criadas": 106, "area_ha": 1544014.73, "area_acum_ha": 12256579.11}, {"ano": 1983, "n_criadas": 97, "area_ha": 1464201.3, "area_acum_ha": 13720780.41}, {"ano": 1984, "n_criadas": 83, "area_ha": 1057057.47, "area_acum_ha": 14777837.88}, {"ano": 1985, "n_criadas": 70, "area_ha": 1808346.32, "area_acum_ha": 16586184.2}, {"ano": 1986, "n_criadas": 154, "area_ha": 673436.48, "area_acum_ha": 17259620.68}, {"ano": 1987, "n_criadas": 389, "area_ha": 1438518.01, "area_acum_ha": 18698138.69}, {"ano": 1988, "n_criadas": 218, "area_ha": 1883606.36, "area_acum_ha": 20581745.05}, {"ano": 1989, "n_criadas": 271, "area_ha": 6683327.05, "area_acum_ha": 27265072.1}, {"ano": 1990, "n_criadas": 155, "area_ha": 7855333.09, "area_acum_ha": 35120405.19}, {"ano": 1991, "n_criadas": 243, "area_ha": 1285076.75, "area_acum_ha": 36405481.94}, {"ano": 1992, "n_criadas": 311, "area_ha": 2056042.47, "area_acum_ha": 38461524.41}, {"ano": 1993, "n_criadas": 127, "area_ha": 357835.27, "area_acum_ha": 38819359.68}, {"ano": 1994, "n_criadas": 107, "area_ha": 574955.9, "area_acum_ha": 39394315.58}, {"ano": 1995, "n_criadas": 643, "area_ha": 4476172.17, "area_acum_ha": 43870487.75}, {"ano": 1996, "n_criadas": 740, "area_ha": 3389888.54, "area_acum_ha": 47260376.29}, {"ano": 1997, "n_criadas": 1136, "area_ha": 6522429.55, "area_acum_ha": 53782805.84}, {"ano": 1998, "n_criadas": 1231, "area_ha": 9455300.12, "area_acum_ha": 63238105.95999999}, {"ano": 1999, "n_criadas": 851, "area_ha": 2427845.85, "area_acum_ha": 65665951.81}, {"ano": 2000, "n_criadas": 582, "area_ha": 1648774.97, "area_acum_ha": 67314726.78}, {"ano": 2001, "n_criadas": 664, "area_ha": 7991999.79, "area_acum_ha": 75306726.57000001}, {"ano": 2002, "n_criadas": 529, "area_ha": 7326729.91, "area_acum_ha": 82633456.48}, {"ano": 2003, "n_criadas": 387, "area_ha": 4768111.53, "area_acum_ha": 87401568.01}, {"ano": 2004, "n_criadas": 636, "area_ha": 6614586.63, "area_acum_ha": 94016154.64}, {"ano": 2005, "n_criadas": 1027, "area_ha": 14828772.35, "area_acum_ha": 108844926.99}, {"ano": 2006, "n_criadas": 1019, "area_ha": 33277388.02, "area_acum_ha": 142122315.01}, {"ano": 2007, "n_criadas": 588, "area_ha": 2281282.75, "area_acum_ha": 144403597.76}, {"ano": 2008, "n_criadas": 551, "area_ha": 7658830.77, "area_acum_ha": 152062428.53}, {"ano": 2009, "n_criadas": 435, "area_ha": 4623762.26, "area_acum_ha": 156686190.79}, {"ano": 2010, "n_criadas": 467, "area_ha": 2303606.28, "area_acum_ha": 158989797.07}, {"ano": 2011, "n_criadas": 267, "area_ha": 1357453.54, "area_acum_ha": 160347250.60999998}, {"ano": 2012, "n_criadas": 236, "area_ha": 475578.67, "area_acum_ha": 160822829.27999997}, {"ano": 2013, "n_criadas": 265, "area_ha": 513722.22, "area_acum_ha": 161336551.49999997}, {"ano": 2014, "n_criadas": 245, "area_ha": 1166655.81, "area_acum_ha": 162503207.30999997}, {"ano": 2015, "n_criadas": 161, "area_ha": 1050621.19, "area_acum_ha": 163553828.49999997}, {"ano": 2016, "n_criadas": 131, "area_ha": 3441069.31, "area_acum_ha": 166994897.80999997}, {"ano": 2017, "n_criadas": 146, "area_ha": 985401.49, "area_acum_ha": 167980299.29999998}, {"ano": 2018, "n_criadas": 185, "area_ha": 1874446.14, "area_acum_ha": 169854745.43999997}, {"ano": 2019, "n_criadas": 48, "area_ha": 53651.86, "area_acum_ha": 169908397.29999998}, {"ano": 2020, "n_criadas": 48, "area_ha": 119869.66, "area_acum_ha": 170028266.95999998}, {"ano": 2021, "n_criadas": 77, "area_ha": 133181.34, "area_acum_ha": 170161448.29999998}, {"ano": 2022, "n_criadas": 66, "area_ha": 2664110.29, "area_acum_ha": 172825558.58999997}, {"ano": 2023, "n_criadas": 41, "area_ha": 228798.78, "area_acum_ha": 173054357.36999995}, {"ano": 2024, "n_criadas": 34, "area_ha": 65068.74, "area_acum_ha": 173119426.10999998}];
+const BIOMA_DATA = {"AMAZÔNIA": {"Assentamento": 29021540.0, "Florestas Não Destinadas": 51135229.0, "Outra Destinação": 1786545.0, "Terra Indígena": 108219836.0, "Unidade de Conservação": 101257185.0, "Área Militar": 2725181.0}, "CAATINGA": {"Assentamento": 4045671.0, "Florestas Não Destinadas": 5567.0, "Outra Destinação": 1066075.0, "Terra Indígena": 415688.0, "Unidade de Conservação": 4377460.0, "Área Militar": 1500.0}, "CERRADO": {"Assentamento": 5834732.0, "Florestas Não Destinadas": 1566974.0, "Outra Destinação": 526050.0, "Terra Indígena": 9276009.0, "Unidade de Conservação": 7679268.0, "Área Militar": 182651.0}, "MATA ATLÂNTICA": {"Assentamento": 1588166.0, "Florestas Não Destinadas": 87819.0, "Outra Destinação": 204674.0, "Terra Indígena": 939343.0, "Unidade de Conservação": 5995686.0, "Área Militar": 20579.0}, "PAMPA": {"Assentamento": 252391.0, "Florestas Não Destinadas": 1349.0, "Outra Destinação": 16763.0, "Terra Indígena": 9741.0, "Unidade de Conservação": 325620.0, "Área Militar": 106874.0}, "PANTANAL": {"Assentamento": 99561.0, "Florestas Não Destinadas": 64954.0, "Outra Destinação": 0.0, "Terra Indígena": 501905.0, "Unidade de Conservação": 487891.0, "Área Militar": 4937.0}};
+const LEG_COLORS = {"Assentamento": "#f59e0b", "Unidade de Conservação": "#4ade80", "Florestas Não Destinadas": "#60a5fa", "Terra Indígena": "#f87171", "Outra Destinação": "#a78bfa", "Área Militar": "#94a3b8"};
+const TOTAL_HA   = 339831414.0;
+const PCT_BR     = 39.91;
+
+/* ── ESTADO ──────────────────────────────────────────────────────────────── */
+let map, layerUF, layerMUN, layerFP;
+let mapMode    = 'uf';
+let filterCat  = 'all';
+let selectedId = null;
+let rankMode   = 'area';
+let cDonut=null, cUFBar=null, cSerieAcum=null, cSerieAnual=null, cBioma=null;
+
+/* ── CORES ───────────────────────────────────────────────────────────────── */
+function pctColor(pct) {
+  const t = Math.max(0, Math.min(1, pct / 100));
+  const stops = [
+    [0,[20,83,45]], [0.3,[22,163,74]], [0.6,[251,191,36]], [1,[220,38,38]]
+  ];
+  let lo=stops[0], hi=stops[stops.length-1];
+  for(let i=0;i<stops.length-1;i++)
+    if(t>=stops[i][0]&&t<=stops[i+1][0]){lo=stops[i];hi=stops[i+1];break;}
+  const f=lo[0]===hi[0]?0:(t-lo[0])/(hi[0]-lo[0]);
+  const r=v=>Math.round(lo[1][v]+(hi[1][v]-lo[1][v])*f);
+  return `rgb(${r(0)},${r(1)},${r(2)})`;
+}
+
+/* ── MAPA ────────────────────────────────────────────────────────────────── */
+function initMap() {
+  map = L.map('map',{center:[-14,-52],zoom:4,zoomControl:true,preferCanvas:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    {attribution:'© CartoDB | SFB/MMA',opacity:0.7}).addTo(map);
+
+  // Legenda pills
+  const legBox = document.getElementById('leg-items');
+  Object.entries(LEG_COLORS).forEach(([cat,col]) => {
+    const d = document.createElement('div');
+    d.className = 'leg-item';
+    d.innerHTML = `<div class="leg-dot" style="background:${col}"></div>${cat}`;
+    legBox.appendChild(d);
+  });
+}
+
+async function loadLayers() {
+  const setStatus = s => document.getElementById('load-detail').textContent = s;
+
+  // Caminhos dos GeoJSON — ajuste se o repo usar subpasta 'data/'
+  setStatus('Carregando estados...');
+  const rUF  = await fetch('geojson_uf.json');
+  const gUF  = await rUF.json();
+
+  setStatus('Carregando municípios...');
+  const rMUN = await fetch('geojson_municipios.json');
+  const gMUN = await rMUN.json();
+
+  setStatus('Carregando florestas públicas...');
+  const rFP  = await fetch('geojson_cnfp.json');
+  const gFP  = await rFP.json();
+
+  // ── Layer UF ──────────────────────────────────────────────────────────────
+  layerUF = L.geoJSON(gUF, {
+    style: f => ({
+      fillColor: pctColor((STATS_UF[f.properties.SIGLA_UF]||{}).pct_uf||0),
+      fillOpacity: 0.65, color:'#163520', weight:0.8, opacity:0.8,
+    }),
+    onEachFeature: (f,l) => {
+      const s  = STATS_UF[f.properties.SIGLA_UF]||{};
+      l.on('mouseover', e => {
+        l.setStyle({color:'#fff',weight:2,fillOpacity:0.9});
+        l.bindTooltip(`<b style="color:#bbf7d0">${f.properties.NM_UF}</b><br>
+          Área FP: <b>${(s.area||0).toLocaleString('pt-BR',{maximumFractionDigits:0})} ha</b><br>
+          % UF coberta: <b>${(s.pct_uf||0).toFixed(1)}%</b>`,
+          {className:'lf-tip',sticky:true}).openTooltip(e.latlng);
+      });
+      l.on('mouseout',()=>{ layerUF.resetStyle(l); l.closeTooltip(); });
+      l.on('click',()=>selectUF(f.properties.SIGLA_UF,f.properties.NM_UF));
+    }
+  }).addTo(map);
+
+  // ── Layer MUN ─────────────────────────────────────────────────────────────
+  layerMUN = L.geoJSON(gMUN, {
+    style: f => ({
+      fillColor: pctColor(f.properties.pct_mun_coberta||0),
+      fillOpacity: 0.70, color:'#0f2214', weight:0.3, opacity:0.6,
+    }),
+    onEachFeature: (f,l) => {
+      l.on('mouseover', e => {
+        l.setStyle({color:'#fff',weight:1.5,fillOpacity:0.92});
+        l.bindTooltip(`<b style="color:#bbf7d0">${f.properties.NM_MUN}</b>
+          <span style="color:var(--muted)"> · ${f.properties.SIGLA_UF}</span><br>
+          Área FP: <b>${(f.properties.area_ha||0).toLocaleString('pt-BR',{maximumFractionDigits:0})} ha</b><br>
+          % do município: <b>${(f.properties.pct_mun_coberta||0).toFixed(1)}%</b>`,
+          {className:'lf-tip',sticky:true}).openTooltip(e.latlng);
+      });
+      l.on('mouseout',()=>{ layerMUN.resetStyle(l); l.closeTooltip(); });
+    }
+  });
+
+  // ── Layer FP (florestas públicas com filtro por legenda) ──────────────────
+  layerFP = L.geoJSON(gFP, {
+    style: f => ({
+      fillColor:   LEG_COLORS[f.properties.legenda]||'#888',
+      fillOpacity: filterCat==='all'||f.properties.legenda===filterCat ? 0.75 : 0.08,
+      color:       LEG_COLORS[f.properties.legenda]||'#888',
+      weight:      0.4, opacity:0.7,
+    }),
+    onEachFeature: (f,l) => {
+      l.on('mouseover', e => {
+        l.setStyle({weight:2,fillOpacity:0.95,color:'#fff'});
+        l.bindTooltip(`<div style="min-width:180px">
+          <b style="color:#bbf7d0">${f.properties.nome||'—'}</b><br>
+          <span style="color:var(--muted)">${f.properties.legenda||'—'} · ${f.properties.bioma||'—'}</span><br>
+          Área: <b>${(f.properties.area_calc_ha||0).toLocaleString('pt-BR',{maximumFractionDigits:0})} ha</b><br>
+          Governo: ${f.properties.governo||'—'} · UF: ${f.properties.uf||'—'}
+        </div>`,{className:'lf-tip',sticky:true}).openTooltip(e.latlng);
+      });
+      l.on('mouseout',()=>{layerFP.resetStyle(l);l.closeTooltip();});
+    }
+  });
+
+  setStatus('');
+  document.getElementById('loading').style.display='none';
+  buildNationalKPIs();
+  buildDonut(calcNationalLeg());
+}
+
+/* ── MAPA MODES ──────────────────────────────────────────────────────────── */
+function setMapMode(m) {
+  mapMode=m;
+  ['uf','mun','fp'].forEach(id => {
+    document.getElementById(`btn-${id}`).classList.toggle('on', id===m);
+  });
+  if(layerUF)  m==='uf'  ? layerUF.addTo(map)  : map.removeLayer(layerUF);
+  if(layerMUN) m==='mun' ? layerMUN.addTo(map) : map.removeLayer(layerMUN);
+  if(layerFP)  m==='fp'  ? layerFP.addTo(map)  : map.removeLayer(layerFP);
+}
+
+function setFilter(cat) {
+  filterCat=cat;
+  document.querySelectorAll('.fbtn').forEach(b =>
+    b.classList.toggle('active', b.textContent.trim()===
+      (cat==='all'?'Todas':cat==='Unidade de Conservação'?'UCs':
+       cat==='Florestas Não Destinadas'?'Não Destinadas':
+       cat==='Terra Indígena'?'TIs':
+       cat==='Outra Destinação'?'Outras':'Assentamentos')
+    )
+  );
+  if(layerFP) layerFP.eachLayer(l => l.setStyle({
+    fillOpacity: cat==='all'||l.feature.properties.legenda===cat ? 0.75 : 0.05,
+  }));
+}
+
+/* ── SELEÇÃO ─────────────────────────────────────────────────────────────── */
+function selectUF(sigla, nome) {
+  const s = STATS_UF[sigla]||{};
+  document.getElementById('kpi-sel-lbl').textContent = nome||sigla;
+  const leg = s.leg||{};
+  document.getElementById('det-nome').textContent = nome||sigla;
+  document.getElementById('det-stats').innerHTML = `
+    <div class="srow"><span class="slbl">Área total FP</span>
+      <span class="sval">${(s.area||0).toLocaleString('pt-BR',{maximumFractionDigits:0})} ha</span></div>
+    <div class="srow"><span class="slbl">% UF coberta</span>
+      <span class="sval">${(s.pct_uf||0).toFixed(2)}%</span></div>
+    <div class="srow"><span class="slbl">Feições cadastradas</span>
+      <span class="sval">${(s.n||0).toLocaleString('pt-BR')}</span></div>
+    ${Object.entries(leg).map(([k,v])=>`
+      <div class="srow">
+        <span class="slbl" style="display:flex;align-items:center;gap:5px">
+          <span style="width:8px;height:8px;border-radius:50%;display:inline-block;
+                        background:${LEG_COLORS[k]||'#888'}"></span>
+          ${k}</span>
+        <span class="sval">${v.toLocaleString('pt-BR',{maximumFractionDigits:0})} ha</span>
+      </div>`).join('')}
+  `;
+  document.getElementById('detail-card').style.display='block';
+  buildDonut(leg);
+  document.getElementById('kpi-grid').innerHTML = kpiHTML([
+    [(s.area||0).toLocaleString('pt-BR',{maximumFractionDigits:0}),'Área FP (ha)',''],
+    [(s.pct_uf||0).toFixed(1)+'%','% UF coberta','amber'],
+    [(s.n||0).toLocaleString('pt-BR'),'Feições','blue'],
+    [(s.pct_br||0).toFixed(2)+'%','% do total BR','teal'],
+  ]);
+}
+
+/* ── KPIs ────────────────────────────────────────────────────────────────── */
+function buildNationalKPIs() {
+  document.getElementById('kpi-grid').innerHTML = kpiHTML([
+    [TOTAL_HA.toLocaleString('pt-BR',{maximumFractionDigits:0}),'Área total (ha)',''],
+    [PCT_BR.toFixed(2)+'%','% do Brasil','amber'],
+    [20.829,'Feições','blue'],
+    [3.438,'Municípios','purple'],
+  ]);
+}
+function kpiHTML(items) {
+  return items.map(([v,l,c])=>
+    `<div class="kpi"><div class="kval ${c}">${v}</div><div class="klbl">${l}</div></div>`
+  ).join('');
+}
+
+function calcNationalLeg() {
+  const leg={};
+  Object.values(STATS_UF).forEach(s=>{
+    Object.entries(s.leg||{}).forEach(([k,v])=> leg[k]=(leg[k]||0)+v);
+  });
+  return leg;
+}
+
+/* ── GRÁFICO DONUT ───────────────────────────────────────────────────────── */
+function buildDonut(leg) {
+  const labels = Object.keys(leg);
+  const vals   = Object.values(leg);
+  const colors = labels.map(l => LEG_COLORS[l]||'#888');
+  const ctx = document.getElementById('chart-donut').getContext('2d');
+  if(cDonut) cDonut.destroy();
+  cDonut = new Chart(ctx,{
+    type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:colors,
+              borderWidth:1,borderColor:'#0a1a0d'}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:350},cutout:'52%',
+      plugins:{
+        legend:{position:'right',labels:{color:'#86efac',font:{size:9},
+                  boxWidth:11,padding:5}},
+        tooltip:{
+          backgroundColor:'#030a05',borderColor:'#163520',borderWidth:1,
+          titleColor:'#bbf7d0',bodyColor:'#86efac',
+          callbacks:{label:c=>`${c.label}: ${c.raw.toLocaleString('pt-BR',{maximumFractionDigits:0})} ha`}
+        }
+      }
+    }
+  });
+}
+
+/* ── RANKING ─────────────────────────────────────────────────────────────── */
+function setRankMode(m) {
+  rankMode=m;
+  document.getElementById('rbtn-area').classList.toggle('on',m==='area');
+  document.getElementById('rbtn-pct').classList.toggle('on',m==='pct');
+  document.getElementById('rank-lbl').textContent = m==='area' ? 'Área total (ha)' : '% do município';
+  buildRanking();
+  buildUFBar();
+}
+
+function buildRanking() {
+  const data = rankMode==='area' ? RANK_AREA : RANK_PCT;
+  const top  = data.slice(0,50);
+  const maxV = top.length ? (rankMode==='area'?top[0].area_ha:top[0].pct_mun_coberta) : 1;
+  document.getElementById('ranking-mun').innerHTML = top.map((r,i) => {
+    const val  = rankMode==='area'
+      ? r.area_ha.toLocaleString('pt-BR',{maximumFractionDigits:0})+' ha'
+      : r.pct_mun_coberta.toFixed(1)+'%';
+    const raw  = rankMode==='area' ? r.area_ha : r.pct_mun_coberta;
+    const pct  = (raw/maxV*100).toFixed(0);
+    return `<div class="ritem">
+      <span class="rnum">${i+1}</span>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between">
+          <div class="rname">${r.municipio||r.cd_mun}<small>${r.uf}</small></div>
+          <span class="rval">${val}</span>
+        </div>
+        <div class="rbar"><div class="rfill" style="width:${pct}%"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function buildUFBar() {
+  const data = Object.entries(STATS_UF)
+    .sort((a,b) => rankMode==='area'
+      ? b[1].area - a[1].area
+      : b[1].pct_uf - a[1].pct_uf)
+    .slice(0,20);
+  const labels = data.map(d=>d[0]);
+  const vals   = data.map(d => rankMode==='area' ? d[1].area : d[1].pct_uf);
+  const ctx = document.getElementById('chart-uf-bar').getContext('2d');
+  if(cUFBar) cUFBar.destroy();
+  cUFBar = new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'',data:vals,
+      backgroundColor:'rgba(74,222,128,.55)',borderRadius:3,borderSkipped:false}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:350},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#030a05',borderColor:'#163520',borderWidth:1,
+          titleColor:'#bbf7d0',bodyColor:'#86efac',
+          callbacks:{label:c=>rankMode==='area'
+            ? c.raw.toLocaleString('pt-BR',{maximumFractionDigits:0})+' ha'
+            : c.raw.toFixed(1)+'%'}}
+      },
+      scales:{
+        x:{ticks:{color:'#3d6b4a',font:{size:8}},grid:{color:'#0f2214'}},
+        y:{ticks:{color:'#86efac',font:{size:9}},grid:{color:'#0f2214'}}
+      }
+    }
+  });
+}
+
+/* ── SÉRIE HISTÓRICA ─────────────────────────────────────────────────────── */
+function buildSeries() {
+  const anos  = SERIE.map(d=>d.ano);
+  const acum  = SERIE.map(d=>d.area_acum_ha/1e6);
+  const anual = SERIE.map(d=>d.area_ha/1e6);
+
+  const co = ctx => ({
+    responsive:true,maintainAspectRatio:false,animation:{duration:350},
+    plugins:{legend:{display:false},
+      tooltip:{backgroundColor:'#030a05',borderColor:'#163520',borderWidth:1,
+        titleColor:'#bbf7d0',bodyColor:'#86efac',
+        callbacks:{label:c=>`${c.raw.toFixed(2)} M ha`}}
+    },
+    scales:{
+      x:{ticks:{color:'#3d6b4a',font:{size:8},maxRotation:45},grid:{color:'#0f2214'}},
+      y:{ticks:{color:'#3d6b4a',font:{size:9}},grid:{color:'#0f2214'}}
+    }
+  });
+
+  const ctx1 = document.getElementById('chart-serie-acum').getContext('2d');
+  if(cSerieAcum) cSerieAcum.destroy();
+  cSerieAcum = new Chart(ctx1,{
+    type:'line',
+    data:{labels:anos,datasets:[{label:'Acumulado',data:acum,
+      borderColor:'#4ade80',backgroundColor:'rgba(74,222,128,.12)',
+      fill:true,tension:0.35,pointRadius:0,borderWidth:2}]},
+    options:co()
+  });
+
+  const ctx2 = document.getElementById('chart-serie-anual').getContext('2d');
+  if(cSerieAnual) cSerieAnual.destroy();
+  cSerieAnual = new Chart(ctx2,{
+    type:'bar',
+    data:{labels:anos,datasets:[{label:'Criações anuais',data:anual,
+      backgroundColor:'rgba(96,165,250,.6)',borderRadius:3,borderSkipped:false}]},
+    options:co()
+  });
+}
+
+/* ── BIOMAS ──────────────────────────────────────────────────────────────── */
+function buildBiomas() {
+  const biomas = Object.keys(BIOMA_DATA);
+  const totals = biomas.map(b => Object.values(BIOMA_DATA[b]).reduce((a,c)=>a+c,0));
+  const biColors = ['#4ade80','#f59e0b','#f87171','#60a5fa','#a78bfa','#2dd4bf'];
+
+  const ctx = document.getElementById('chart-bioma').getContext('2d');
+  if(cBioma) cBioma.destroy();
+  cBioma = new Chart(ctx,{
+    type:'bar',
+    data:{labels:biomas,datasets:[{
+      data:totals.map(v=>v/1e6),
+      backgroundColor:biColors,borderRadius:3,borderSkipped:false
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:350},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#030a05',borderColor:'#163520',borderWidth:1,
+          titleColor:'#bbf7d0',bodyColor:'#86efac',
+          callbacks:{label:c=>`${c.raw.toFixed(2)} M ha`}}
+      },
+      scales:{
+        x:{ticks:{color:'#86efac',font:{size:8}},grid:{color:'#0f2214'}},
+        y:{ticks:{color:'#3d6b4a',font:{size:9}},grid:{color:'#0f2214'}}
+      }
+    }
+  });
+
+  // Breakdown por bioma
+  const cats = [...new Set(Object.values(BIOMA_DATA).flatMap(d=>Object.keys(d)))];
+  document.getElementById('bioma-detail').innerHTML = biomas.map((b,bi)=>{
+    const rows = cats.map(c=>{
+      const v = BIOMA_DATA[b][c]||0;
+      if(!v) return '';
+      return `<div class="srow">
+        <span class="slbl" style="display:flex;align-items:center;gap:5px">
+          <span style="width:7px;height:7px;border-radius:50%;display:inline-block;
+                        background:${LEG_COLORS[c]||'#888'}"></span>${c}</span>
+        <span class="sval">${v.toLocaleString('pt-BR',{maximumFractionDigits:0})} ha</span>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:${biColors[bi]};margin-bottom:5px">
+        ${b} — ${(totals[bi]/1e6).toFixed(2)} M ha</div>
+      ${rows}</div>`;
+  }).join('');
+}
+
+/* ── TABS ────────────────────────────────────────────────────────────────── */
+function switchTab(t) {
+  ['visao','ranking','historia','bioma'].forEach((id,i) => {
+    document.querySelectorAll('.tab')[i].classList.toggle('active',id===t);
+    document.getElementById(`tc-${id}`).classList.toggle('active',id===t);
+  });
+  if(t==='ranking') { buildRanking(); buildUFBar(); }
+  if(t==='historia') buildSeries();
+  if(t==='bioma')    buildBiomas();
+}
+
+/* ── INIT ────────────────────────────────────────────────────────────────── */
+window.addEventListener('load', () => {
+  Chart.register(window['chartjs-plugin-annotation']||{});
+  initMap();
+  loadLayers();
+});
+</script>
+</body>
+</html>
