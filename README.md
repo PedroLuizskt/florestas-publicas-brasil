@@ -197,6 +197,14 @@ Os dados utilizados são públicos e de domínio governamental (SFB/MMA e IBGE).
 
 ---
 
+## 🚀 Próximos Passos (Trabalhos Futuros)
+
+A infraestrutura de dados atual abre caminho para análises temporais e de conservação mais profundas:
+- **Monitoramento de Cobertura:** Cruzamento das geometrias das florestas públicas (especialmente Assentamentos e Florestas Não Destinadas) com os dados de uso do solo do **MapBiomas**.
+- **Análise de Pressão:** Avaliação da sobreposição com alertas de desmatamento utilizando dados do **PRODES/DETER**.
+
+---
+
 ## 👤 Autor
 
 **Pedro Luiz**
